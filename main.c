@@ -25,6 +25,9 @@ typedef struct {
 Process processes[MAX_PROCESSES];
 int num_processes;
 int time_quantum;
+int gantt_chart[1000]; // Assuming the total time will not exceed 1000 units
+int gantt_chart_index = 0;
+int total_cpu_busy_time = 0;
 
 /* Input mechanism */
 void input_processes() {
@@ -95,7 +98,6 @@ void round_robin_scheduling() {
         }
 
         // Process the queue
-        // Process the queue
         if (front < rear) {
             // Find the highest priority process in the queue
             int highest_priority_index = front;
@@ -121,6 +123,12 @@ void round_robin_scheduling() {
             current_process->remaining_time -= execution_time;
             current_time += execution_time;
 
+            // Update Gantt chart and CPU busy time
+            for (int t = 0; t < execution_time; t++) {
+                gantt_chart[gantt_chart_index++] = current_process->id;
+            }
+            total_cpu_busy_time += execution_time;
+
             if (current_process->remaining_time == 0) {
                 current_process->is_completed = true;
                 current_process->turnaround_time = current_time - current_process->arrival_time;
@@ -135,9 +143,22 @@ void round_robin_scheduling() {
                 }
             }
         } else {
+            gantt_chart[gantt_chart_index++] = -1; // Idle time
             current_time++;
         }
     }
+}
+
+void print_gantt_chart() {
+    printf("\nGantt Chart:\n");
+    for (int i = 0; i < gantt_chart_index; i++) {
+        if (gantt_chart[i] == -1) {
+            printf("| Idle ");
+        } else {
+            printf("| P%d ", gantt_chart[i]);
+        }
+    }
+    printf("|\n");
 }
 
 /* Output the results */
@@ -166,11 +187,15 @@ void print_results() {
     printf("\nAverage Waiting Time: %.2f\n", avg_waiting_time);
     printf("Average Turnaround Time: %.2f\n", avg_turnaround_time);
     printf("Average Response Time: %.2f\n", avg_response_time);
+
+    double cpu_utilization = ((double)total_cpu_busy_time / current_time) * 100;
+    printf("CPU Utilization: %.2f%%\n", cpu_utilization);
 }
 
 int main() {
     input_processes();
     round_robin_scheduling();
+    print_gantt_chart();
     print_results();
     return 0;
 }
