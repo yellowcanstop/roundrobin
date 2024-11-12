@@ -3,6 +3,8 @@
 #include <stdbool.h>
 
 #define MAX_PROCESSES 10
+#define AGING_INTERVAL 5
+#define AGING_INCREMENT 1
 
 /* Define the process structure. */
 typedef struct {
@@ -17,6 +19,7 @@ typedef struct {
     int response_time;
     bool is_completed;
     bool is_in_io;
+    int io_start_time;
 } Process;
 
 Process processes[MAX_PROCESSES];
@@ -45,10 +48,27 @@ void input_processes() {
         processes[i].response_time = -1;
         processes[i].is_completed = false;
         processes[i].is_in_io = false;
+        processes[i].io_start_time = -1;
     }
 
     printf("Enter the time quantum: ");
     scanf("%d", &time_quantum);
+}
+
+void update_io_wait(int current_time) {
+    for (int i = 0; i < num_processes; i++) {
+        if (processes[i].is_in_io && current_time - processes[i].io_start_time >= processes[i].io_wait_time) {
+            processes[i].is_in_io = false;
+        }
+    }
+}
+
+void apply_aging(int current_time) {
+    for (int i = 0; i < num_processes; i++) {
+        if (!processes[i].is_completed && !processes[i].is_in_io && processes[i].arrival_time <= current_time) {
+            processes[i].priority = (processes[i].priority > 1) ? processes[i].priority - AGING_INCREMENT : 1;
+        }
+    }
 }
 
 /* Round Robin Scheduling Algorithm */
@@ -66,8 +86,30 @@ void round_robin_scheduling() {
             }
         }
 
+        // Update I/O wait times
+        update_io_wait(current_time);
+
+        // Apply aging
+        if (current_time % AGING_INTERVAL == 0) {
+            apply_aging(current_time);
+        }
+
+        // Process the queue
         // Process the queue
         if (front < rear) {
+            // Find the highest priority process in the queue
+            int highest_priority_index = front;
+            for (int i = front + 1; i < rear; i++) {
+                if (processes[queue[i]].priority < processes[queue[highest_priority_index]].priority) {
+                    highest_priority_index = i;
+                }
+            }
+
+            // Swap the highest priority process to the front
+            int temp = queue[front];
+            queue[front] = queue[highest_priority_index];
+            queue[highest_priority_index] = temp;
+
             int current_process_index = queue[front++];
             Process *current_process = &processes[current_process_index];
 
@@ -85,7 +127,12 @@ void round_robin_scheduling() {
                 current_process->waiting_time = current_process->turnaround_time - current_process->burst_time;
                 completed_processes++;
             } else {
-                queue[rear++] = current_process_index;
+                if (current_process->io_wait_time > 0) {
+                    current_process->is_in_io = true;
+                    current_process->io_start_time = current_time;
+                } else {
+                    queue[rear++] = current_process_index;
+                }
             }
         } else {
             current_time++;
