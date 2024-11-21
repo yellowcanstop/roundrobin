@@ -57,23 +57,25 @@ typedef struct {
     int arrival_time;
     int burst_time;
     int remaining_burst_time;
-    int io_wait_time; // specific to each process; amount of time in "blocked" state
+    int io_wait_time; // I/O operations always happen after the process completes its burst time
     int completion_time;
     int turnaround_time;
     int waiting_time;
     int response_time;
+    int blocked_until;
     bool is_completed;
     bool in_queue;
     bool is_ready;
     bool is_running;
-    bool is_blocked; // not eligible for CPU scheduling until I/O completes
+    bool is_blocked; 
 } Process;
 
 void initialize_processes(Process processes[], int num_processes);
 void sort_processes_by_arrival_time(Process processes[], int num_processes);
 void sort_processes_by_process_id(Process processes[], int num_processes);
 void check_for_new_arrivals(Process processes[], const int num_processes, int *current_time, Queue *ready_queue);
-void update_queue(Process processes[], const int num_processes, const int time_quantum, Queue *ready_queue, int *current_time, int *executed_processes);
+void check_blocked_processes(Process processes[], const int num_processes, int *current_time, Queue *ready_queue, int *executed_processes, int *blocked_processes);
+void update_queue(Process processes[], const int num_processes, const int time_quantum, Queue *ready_queue, int *current_time, int *executed_processes, int *blocked_processes);
 void round_robin_scheduler(Process processes[], int num_processes, int time_quantum);
 void output_results(Process processes[], int num_processes);
 
@@ -99,6 +101,7 @@ int main() {
     } while (time_quantum < 0 || time_quantum > MAX_TIME_QUANTUM);
     
     Process processes[num_processes + 1];
+    int blocked_processes[num_processes + 1];
 
     initialize_processes(processes, num_processes);
 
@@ -125,6 +128,7 @@ void initialize_processes(Process processes[], int num_processes) {
         processes[i].turnaround_time = 0;
         processes[i].waiting_time = 0;
         processes[i].response_time = -1;
+        processes[i].blocked_until = -1;
         processes[i].is_completed = false;
         processes[i].in_queue = false;
         processes[i].is_ready = false;
@@ -169,7 +173,7 @@ void check_for_new_arrivals(Process processes[], const int num_processes, int *c
     }
 }
 
-void update_queue(Process processes[], const int num_processes, const int time_quantum, Queue *ready_queue, int *current_time, int *executed_processes) {
+void update_queue(Process processes[], const int num_processes, const int time_quantum, Queue *ready_queue, int *current_time, int *executed_processes, int *blocked_processes) {
     printf("Updating queue...\n");
     int current_process = dequeue(ready_queue);
     printf("Process %d is running...\n", processes[current_process].process_id);
@@ -183,18 +187,30 @@ void update_queue(Process processes[], const int num_processes, const int time_q
 
     if (processes[current_process].remaining_burst_time <= time_quantum) {
         processes[current_process].is_running = false;
-        processes[current_process].is_completed = true;
         *current_time += processes[current_process].remaining_burst_time;
-        processes[current_process].completion_time = *current_time;
-        processes[current_process].turnaround_time = processes[current_process].completion_time - processes[current_process].arrival_time;
-        processes[current_process].waiting_time = processes[current_process].turnaround_time - processes[current_process].burst_time;
         processes[current_process].remaining_burst_time = 0;
-        (*executed_processes)++;
 
-        printf("Process %d has completed execution with completion time of %d ms.\n", processes[current_process].process_id, processes[current_process].completion_time);
-        printf("Turnaround time for Process %d is %d ms.\n", processes[current_process].process_id, processes[current_process].turnaround_time);
-        printf("Waiting time for Process %d is %d ms.\n", processes[current_process].process_id, processes[current_process].waiting_time);
-       
+        if (processes[current_process].io_wait_time > 0) {
+            (*blocked_processes)++;
+            processes[current_process].is_blocked = true;
+            processes[current_process].blocked_until = *current_time + processes[current_process].io_wait_time;
+            printf("Process %d is blocked for I/O for %d ms until time reaches %d.\n", processes[current_process].process_id, processes[current_process].io_wait_time, processes[current_process].blocked_until);
+        } else {
+            processes[current_process].is_completed = true;
+            processes[current_process].completion_time = *current_time;
+            processes[current_process].turnaround_time = processes[current_process].completion_time - processes[current_process].arrival_time;
+            processes[current_process].waiting_time = processes[current_process].turnaround_time - processes[current_process].burst_time;
+            (*executed_processes)++;
+
+            printf("Process %d has completed execution with completion time of %d ms.\n", processes[current_process].process_id, processes[current_process].completion_time);
+            printf("Turnaround time for Process %d is %d ms.\n", processes[current_process].process_id, processes[current_process].turnaround_time);
+            printf("Waiting time for Process %d is %d ms.\n", processes[current_process].process_id, processes[current_process].waiting_time);
+        }
+
+        if (*blocked_processes != 0) {
+            check_blocked_processes(processes, num_processes, current_time, ready_queue, executed_processes, blocked_processes);
+        }
+
         if (*executed_processes != num_processes) {
             check_for_new_arrivals(processes, num_processes, current_time, ready_queue);
         }
@@ -204,6 +220,10 @@ void update_queue(Process processes[], const int num_processes, const int time_q
         processes[current_process].is_running = false;
 
         printf("Process %d is preempted with %d ms of burst time remaining.\n", processes[current_process].process_id, processes[current_process].remaining_burst_time);
+
+        if (*blocked_processes != 0) {
+            check_blocked_processes(processes, num_processes, current_time, ready_queue, executed_processes, blocked_processes);
+        }
 
 		if (*executed_processes != num_processes) {
             check_for_new_arrivals(processes, num_processes, current_time, ready_queue);
@@ -215,6 +235,19 @@ void update_queue(Process processes[], const int num_processes, const int time_q
     }
 }
 
+void check_blocked_processes(Process processes[], const int num_processes, int *current_time, Queue *ready_queue, int *executed_processes, int *blocked_processes) {
+    for (int i = 0; i < num_processes; i++) {
+        if (processes[i].is_blocked && *current_time >= processes[i].blocked_until) {
+            processes[i].is_blocked = false;
+            processes[i].io_wait_time = 0;
+            enqueue(ready_queue, i);
+            (*blocked_processes)--;
+            processes[i].is_ready = true;
+            printf("Process %d is unblocked and added back to the ready queue.\n", processes[i].process_id);
+        }
+    }
+}
+
 void round_robin_scheduler(Process processes[], int num_processes, int time_quantum) {
     Queue *ready_queue = create_queue(num_processes + 1);
     enqueue(ready_queue, 0);
@@ -223,13 +256,14 @@ void round_robin_scheduler(Process processes[], int num_processes, int time_quan
 
     int current_time = 0; 
     int executed_processes = 0; 
+    int blocked_processes = 0;
 
     while (processes[0].arrival_time != current_time) {
         current_time++;
     }
 
     while (!is_queue_empty(ready_queue)) {
-        update_queue(processes, num_processes, time_quantum, ready_queue, &current_time, &executed_processes);
+        update_queue(processes, num_processes, time_quantum, ready_queue, &current_time, &executed_processes, &blocked_processes);
     }
 
     free_queue(ready_queue);
