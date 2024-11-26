@@ -101,7 +101,6 @@ int main() {
     } while (time_quantum < 0 || time_quantum > MAX_TIME_QUANTUM);
 
     Process processes[num_processes + 1];
-    int blocked_processes[num_processes + 1];
 
     initialize_processes(processes, num_processes);
 
