@@ -67,7 +67,7 @@ typedef struct {
     bool in_queue;
     bool is_ready;
     bool is_running;
-    bool is_blocked; 
+    bool is_blocked;
 } Process;
 
 void initialize_processes(Process processes[], int num_processes);
@@ -85,7 +85,7 @@ int main() {
     do {
         printf("Enter number of processes (1-%d): ", MAX_PROCESSES);
         int check_process_count = scanf("%d", &num_processes);
-        while (getchar() != '\n'); 
+        while (getchar() != '\n'){}
         if (check_process_count != 1 || num_processes < 1 || num_processes > MAX_PROCESSES) {
             printf("Invalid: number of processes needs to be between 1 and %d.\n", MAX_PROCESSES);
         }
@@ -94,21 +94,20 @@ int main() {
     do {
         printf("Enter time quantum (TQ) in milliseconds (at most %d ms): ", MAX_TIME_QUANTUM);
         int check_time_quantum = scanf("%d", &time_quantum);
-        while (getchar() != '\n'); 
+        while (getchar() != '\n') {}
         if (check_time_quantum != 1 || time_quantum < 0 || time_quantum > MAX_TIME_QUANTUM) {
             printf("Invalid: time quantum needs to be a positive integer and less than %d ms.\n", MAX_TIME_QUANTUM);
         }
     } while (time_quantum < 0 || time_quantum > MAX_TIME_QUANTUM);
-    
+
     Process processes[num_processes + 1];
-    int blocked_processes[num_processes + 1];
 
     initialize_processes(processes, num_processes);
 
     sort_processes_by_arrival_time(processes, num_processes);
 
     round_robin_scheduler(processes, num_processes, time_quantum);
-    
+
     output_results(processes, num_processes);
 
     return 0;
@@ -179,7 +178,7 @@ void update_queue(Process processes[], const int num_processes, const int time_q
     printf("Process %d is running...\n", processes[current_process].process_id);
     processes[current_process].is_ready = false;
     processes[current_process].is_running = true;
-    
+
     if (processes[current_process].response_time == -1) {
         processes[current_process].response_time = *current_time - processes[current_process].arrival_time;
         printf("Response time for Process %d is %d ms.\n", processes[current_process].process_id, processes[current_process].response_time);
@@ -228,7 +227,7 @@ void update_queue(Process processes[], const int num_processes, const int time_q
 		if (*executed_processes != num_processes) {
             check_for_new_arrivals(processes, num_processes, current_time, ready_queue);
         }
-     
+
 		enqueue(ready_queue, current_process);
         processes[current_process].is_ready = true;
         printf("Process %d is added back to the ready queue.\n", processes[current_process].process_id);
@@ -254,20 +253,26 @@ void round_robin_scheduler(Process processes[], int num_processes, int time_quan
     processes[0].in_queue = true;
     processes[0].is_ready = true;
 
-    int current_time = 0; 
-    int executed_processes = 0; 
+    int current_time = 0;
+    int executed_processes = 0;
     int blocked_processes = 0;
 
     while (processes[0].arrival_time != current_time) {
         current_time++;
     }
 
-    while (!is_queue_empty(ready_queue)) {
-        update_queue(processes, num_processes, time_quantum, ready_queue, &current_time, &executed_processes, &blocked_processes);
+    while (!is_queue_empty(ready_queue) || blocked_processes > 0) {
+        check_blocked_processes(processes, num_processes, &current_time, ready_queue, &executed_processes, &blocked_processes);
+        if (!is_queue_empty(ready_queue)) {
+            update_queue(processes, num_processes, time_quantum, ready_queue, &current_time, &executed_processes, &blocked_processes);
+        } else {
+            current_time++;
+        }
     }
 
     free_queue(ready_queue);
 }
+
 
 void output_results(Process processes[], int num_processes) {
     double total_turnaround_time = 0;
@@ -290,5 +295,5 @@ void output_results(Process processes[], int num_processes) {
     printf("\nAverage Turnaround Time (ms): %.2f\n", total_turnaround_time / num_processes);
     printf("Average Waiting Time (ms): %.2f\n", total_waiting_time / num_processes);
     printf("Average Response Time (ms): %.2f\n", total_response_time / num_processes);
-    printf("Total CPU Utilization (%): %.2f%%\n", total_burst_time / (total_burst_time + total_waiting_time) * 100);
+    printf("Total CPU Utilization (%%): %.2f%%\n", total_burst_time / (total_burst_time + total_waiting_time) * 100);
 }
