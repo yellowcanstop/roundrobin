@@ -73,42 +73,45 @@ typedef struct {
 void initialize_processes(Process processes[], int num_processes);
 void sort_processes_by_arrival_time(Process processes[], int num_processes);
 void sort_processes_by_process_id(Process processes[], int num_processes);
-void check_for_new_arrivals(Process processes[], const int num_processes, int *current_time, Queue *ready_queue);
-void check_blocked_processes(Process processes[], const int num_processes, int *current_time, Queue *ready_queue, int *executed_processes, int *blocked_processes);
-void update_queue(Process processes[], const int num_processes, const int time_quantum, Queue *ready_queue, int *current_time, int *executed_processes, int *blocked_processes);
-void round_robin_scheduler(Process processes[], int num_processes, int time_quantum);
-void output_results(Process processes[], int num_processes);
+void check_for_new_arrivals(int *current_time, Queue *ready_queue);
+void check_blocked_processes(int *current_time, Queue *ready_queue, int *executed_processes, int *blocked_processes);
+void update_queue(Queue *ready_queue, int *current_time, int *executed_processes, int *blocked_processes);
+void round_robin_scheduler();
+void output_results();
+
+Process processes[MAX_PROCESSES];
+int num_processes;
+int time_quantum;
 
 int main() {
-    int num_processes, time_quantum;
 
     do {
         printf("Enter number of processes (1-%d): ", MAX_PROCESSES);
         int check_process_count = scanf("%d", &num_processes);
-        while (getchar() != '\n'){}
+        while (getchar() != '\n');
         if (check_process_count != 1 || num_processes < 1 || num_processes > MAX_PROCESSES) {
             printf("Invalid: number of processes needs to be between 1 and %d.\n", MAX_PROCESSES);
         }
+
     } while (num_processes < 1 || num_processes > MAX_PROCESSES);
 
     do {
         printf("Enter time quantum (TQ) in milliseconds (at most %d ms): ", MAX_TIME_QUANTUM);
         int check_time_quantum = scanf("%d", &time_quantum);
-        while (getchar() != '\n') {}
+        while (getchar() != '\n');
         if (check_time_quantum != 1 || time_quantum < 0 || time_quantum > MAX_TIME_QUANTUM) {
             printf("Invalid: time quantum needs to be a positive integer and less than %d ms.\n", MAX_TIME_QUANTUM);
         }
-    } while (time_quantum < 0 || time_quantum > MAX_TIME_QUANTUM);
 
-    Process processes[num_processes + 1];
+    } while (time_quantum < 0 || time_quantum > MAX_TIME_QUANTUM);
 
     initialize_processes(processes, num_processes);
 
     sort_processes_by_arrival_time(processes, num_processes);
 
-    round_robin_scheduler(processes, num_processes, time_quantum);
+    round_robin_scheduler();
 
-    output_results(processes, num_processes);
+    output_results();
 
     return 0;
 }
@@ -161,7 +164,7 @@ void sort_processes_by_process_id(Process processes[], int num_processes) {
     }
 }
 
-void check_for_new_arrivals(Process processes[], const int num_processes, int *current_time, Queue *ready_queue) {
+void check_for_new_arrivals(int *current_time, Queue *ready_queue) {
     for (int i = 0; i < num_processes; i++) {
         if (processes[i].arrival_time <= *current_time && !processes[i].in_queue && !processes[i].is_completed) {
             processes[i].in_queue = true;
@@ -172,7 +175,7 @@ void check_for_new_arrivals(Process processes[], const int num_processes, int *c
     }
 }
 
-void update_queue(Process processes[], const int num_processes, const int time_quantum, Queue *ready_queue, int *current_time, int *executed_processes, int *blocked_processes) {
+void update_queue(Queue *ready_queue, int *current_time, int *executed_processes, int *blocked_processes) {
     printf("Updating queue...\n");
     int current_process = dequeue(ready_queue);
     printf("Process %d is running...\n", processes[current_process].process_id);
@@ -207,11 +210,11 @@ void update_queue(Process processes[], const int num_processes, const int time_q
         }
 
         if (*blocked_processes != 0) {
-            check_blocked_processes(processes, num_processes, current_time, ready_queue, executed_processes, blocked_processes);
+            check_blocked_processes(current_time, ready_queue, executed_processes, blocked_processes);
         }
 
         if (*executed_processes != num_processes) {
-            check_for_new_arrivals(processes, num_processes, current_time, ready_queue);
+            check_for_new_arrivals(current_time, ready_queue);
         }
     } else {
         processes[current_process].remaining_burst_time -= time_quantum;
@@ -221,11 +224,11 @@ void update_queue(Process processes[], const int num_processes, const int time_q
         printf("Process %d is preempted with %d ms of burst time remaining.\n", processes[current_process].process_id, processes[current_process].remaining_burst_time);
 
         if (*blocked_processes != 0) {
-            check_blocked_processes(processes, num_processes, current_time, ready_queue, executed_processes, blocked_processes);
+            check_blocked_processes(current_time, ready_queue, executed_processes, blocked_processes);
         }
 
 		if (*executed_processes != num_processes) {
-            check_for_new_arrivals(processes, num_processes, current_time, ready_queue);
+            check_for_new_arrivals(current_time, ready_queue);
         }
 
 		enqueue(ready_queue, current_process);
@@ -234,7 +237,7 @@ void update_queue(Process processes[], const int num_processes, const int time_q
     }
 }
 
-void check_blocked_processes(Process processes[], const int num_processes, int *current_time, Queue *ready_queue, int *executed_processes, int *blocked_processes) {
+void check_blocked_processes(int *current_time, Queue *ready_queue, int *executed_processes, int *blocked_processes) {
     for (int i = 0; i < num_processes; i++) {
         if (processes[i].is_blocked && *current_time >= processes[i].blocked_until) {
             processes[i].is_blocked = false;
@@ -247,7 +250,7 @@ void check_blocked_processes(Process processes[], const int num_processes, int *
     }
 }
 
-void round_robin_scheduler(Process processes[], int num_processes, int time_quantum) {
+void round_robin_scheduler() {
     Queue *ready_queue = create_queue(num_processes + 1);
     enqueue(ready_queue, 0);
     processes[0].in_queue = true;
@@ -262,9 +265,9 @@ void round_robin_scheduler(Process processes[], int num_processes, int time_quan
     }
 
     while (!is_queue_empty(ready_queue) || blocked_processes > 0) {
-        check_blocked_processes(processes, num_processes, &current_time, ready_queue, &executed_processes, &blocked_processes);
+        check_blocked_processes(&current_time, ready_queue, &executed_processes, &blocked_processes);
         if (!is_queue_empty(ready_queue)) {
-            update_queue(processes, num_processes, time_quantum, ready_queue, &current_time, &executed_processes, &blocked_processes);
+            update_queue(ready_queue, &current_time, &executed_processes, &blocked_processes);
         } else {
             current_time++;
         }
@@ -274,7 +277,7 @@ void round_robin_scheduler(Process processes[], int num_processes, int time_quan
 }
 
 
-void output_results(Process processes[], int num_processes) {
+void output_results() {
     double total_turnaround_time = 0;
     double total_waiting_time = 0;
     double total_response_time = 0;
