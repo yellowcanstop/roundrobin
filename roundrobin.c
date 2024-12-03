@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
-
+#include <iup.h>
 
 #define MAX_PROCESSES 10
 #define MAX_TIME_QUANTUM 100 // from Slide 35
@@ -23,16 +23,13 @@ Queue* create_queue(int capacity) {
     return queue;
 }
 
-
 bool is_queue_empty(Queue *queue) {
     return queue->front == queue->rear;
 }
 
-
 bool is_queue_full(Queue *queue) {
     return (queue->rear + 1) % queue->capacity == queue->front;
 }
-
 
 void enqueue(Queue *queue, int item) {
     if (is_queue_full(queue)) {
@@ -42,7 +39,6 @@ void enqueue(Queue *queue, int item) {
     queue->data[queue->rear] = item;
     queue->rear = (queue->rear + 1) % queue->capacity;
 }
-
 
 int dequeue(Queue *queue) {
     if (is_queue_empty(queue)) {
@@ -54,12 +50,10 @@ int dequeue(Queue *queue) {
     return item;
 }
 
-
 void free_queue(Queue *queue) {
     free(queue->data);
     free(queue);
 }
-
 
 typedef struct {
     int process_id;
@@ -79,12 +73,11 @@ typedef struct {
     bool is_blocked;
 } Process;
 
-
-typedef enum { 
-    READY, 
-    RUNNING, 
-    BLOCKED, 
-    COMPLETED 
+typedef enum {
+    READY,
+    RUNNING,
+    BLOCKED,
+    COMPLETED
 } Status;
 
 
@@ -104,8 +97,91 @@ Process processes[MAX_PROCESSES];
 int num_processes;
 int time_quantum;
 
+Ihandle *inputGrid() {
+    Ihandle *gbox;
+    gbox = IupGridBox
+    (
+      IupSetAttributes(IupLabel("PID"), "FONTSTYLE=Bold"),
+      IupSetAttributes(IupLabel("Arrival Time"), "FONTSTYLE=Bold"),
+      IupSetAttributes(IupLabel("Burst Time"), "FONTSTYLE=Bold"),
+      IupSetAttributes(IupLabel("I/O Time"), "FONTSTYLE=Bold"),
+      NULL
+    );
 
-int main() {
+    for(int i = 1; i < 11; i++){
+        char index[4];
+        sprintf(index, "%d", i);
+        Ihandle *pid = IupSetAttributes(IupLabel(index), "ALIGNMENT=ACENTER");
+        Ihandle *arrivalInput = IupSetAttributes(IupText("0"), "FILTER=NUMBER, PADDING=3x3");
+        Ihandle *burstInput = IupSetAttributes(IupText("0"), "FILTER=NUMBER, PADDING=3x3");
+        Ihandle *ioInput = IupSetAttributes(IupText("0"), "FILTER=NUMBER, PADDING=3x3");
+
+        IupAppend(gbox, pid);
+        IupAppend(gbox, arrivalInput);
+        IupAppend(gbox, burstInput);
+        IupAppend(gbox, ioInput);
+    }
+
+    IupRefresh(gbox);
+
+    IupSetAttribute(gbox, "EXPANDCHILDREN", "HORIZONTAL");
+    IupSetAttribute(gbox, "NUMDIV", "4");
+    IupSetAttribute(gbox, "ALIGNMENTLIN", "ACENTER");
+    IupSetAttribute(gbox, "MARGIN", "10x10");
+    IupSetAttribute(gbox, "GAPLIN", "5");
+    IupSetAttribute(gbox, "GAPCOL", "5");
+    return gbox;
+}
+
+Ihandle *timeQuantumInput() {
+    Ihandle *hbox;
+
+    hbox = IupHbox
+    (
+      IupSetAttributes(IupLabel("Enter time quantum (ms):"), "FONTSTYLE=Bold"),
+      IupSetAttributes(IupText("Arrival Time"), "FILTER=NUMBER, SIZE=20x10, MARGIN=3x3"),
+      IupSetAttributes(IupLabel("(Max 100)"), "FONTSTYLE=Bold"),
+      NULL
+    );
+
+    return hbox;
+}
+
+void RoundRobinInput()
+{
+  Ihandle *mainDialog;
+  Ihandle *gridFrame;
+  Ihandle *topFrame;
+
+  topFrame = IupFrame(timeQuantumInput());
+  gridFrame = IupFrame(inputGrid());
+
+  mainDialog = IupDialog
+  (
+    IupVbox
+    (
+      topFrame,
+      gridFrame,
+      NULL      // Always end with NULL for this kind of IUP list
+    )
+  );
+
+  IupSetAttribute(mainDialog, "TITLE", "Round Robin Input");
+  IupSetAttribute(mainDialog, "MARGIN", "10x10");
+  IupSetAttribute(gridFrame, "MARGIN", "0x0");   /* avoid attribute propagation */
+
+  /* Shows dlg in the center of the screen */
+  IupShowXY(mainDialog, IUP_CENTER, IUP_CENTER);
+}
+
+int main(int argc, char **argv) {
+
+    /* TODO: Display only, just close for now */
+    IupOpen(&argc, &argv);
+    RoundRobinInput();
+    IupMainLoop();
+    IupClose();
+
     do {
         printf("Enter number of processes (1-%d): ", MAX_PROCESSES);
         int check_process_count = scanf("%d", &num_processes);
@@ -218,7 +294,7 @@ void update_queue(Queue *ready_queue, int *current_time, int *executed_processes
     processes[current_process].is_ready = false;
     processes[current_process].is_running = true;
     output_process(*current_time, processes[current_process].process_id, RUNNING, processes[current_process].remaining_burst_time, processes[current_process].io_wait_time);
-   
+
     if (processes[current_process].response_time == -1) {
         processes[current_process].response_time = *current_time - processes[current_process].arrival_time;
     }
