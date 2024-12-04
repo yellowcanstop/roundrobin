@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
-
+#include <iup.h>
 
 #define MAX_PROCESSES 10
 #define MAX_TIME_QUANTUM 100 // from Slide 35
@@ -23,16 +23,13 @@ Queue* create_queue(int capacity) {
     return queue;
 }
 
-
 bool is_queue_empty(Queue *queue) {
     return queue->front == queue->rear;
 }
 
-
 bool is_queue_full(Queue *queue) {
     return (queue->rear + 1) % queue->capacity == queue->front;
 }
-
 
 void enqueue(Queue *queue, int item) {
     if (is_queue_full(queue)) {
@@ -42,7 +39,6 @@ void enqueue(Queue *queue, int item) {
     queue->data[queue->rear] = item;
     queue->rear = (queue->rear + 1) % queue->capacity;
 }
-
 
 int dequeue(Queue *queue) {
     if (is_queue_empty(queue)) {
@@ -54,12 +50,10 @@ int dequeue(Queue *queue) {
     return item;
 }
 
-
 void free_queue(Queue *queue) {
     free(queue->data);
     free(queue);
 }
-
 
 typedef struct {
     int process_id;
@@ -79,12 +73,11 @@ typedef struct {
     bool is_blocked;
 } Process;
 
-
-typedef enum { 
-    READY, 
-    RUNNING, 
-    BLOCKED, 
-    COMPLETED 
+typedef enum {
+    READY,
+    RUNNING,
+    BLOCKED,
+    COMPLETED
 } Status;
 
 
@@ -104,8 +97,144 @@ Process processes[MAX_PROCESSES];
 int num_processes;
 int time_quantum;
 
+Ihandle *inputGrid() {
+    Ihandle *gbox;
+    gbox = IupGridBox
+    (
+      IupSetAttributes(IupLabel("PID"), "FONTSTYLE=Bold"),
+      IupSetAttributes(IupLabel("Arrival Time"), "FONTSTYLE=Bold"),
+      IupSetAttributes(IupLabel("Burst Time"), "FONTSTYLE=Bold"),
+      IupSetAttributes(IupLabel("I/O Time"), "FONTSTYLE=Bold"),
+      NULL
+    );
 
-int main() {
+    IupSetAttribute(gbox, "NAME", "GRID");
+
+    for(int i = 1; i < 11; i++){
+        char index[4];
+        sprintf(index, "%d", i);
+        Ihandle *pid = IupSetAttributes(IupLabel(index), "ALIGNMENT=ACENTER");
+        Ihandle *arrivalInput = IupSetAttributes(IupText("0"), "FILTER=NUMBER, PADDING=3x3");
+        Ihandle *burstInput = IupSetAttributes(IupText("0"), "FILTER=NUMBER, PADDING=3x3");
+        Ihandle *ioInput = IupSetAttributes(IupText("0"), "FILTER=NUMBER, PADDING=3x3");
+
+        IupAppend(gbox, pid);
+        IupAppend(gbox, arrivalInput);
+        IupAppend(gbox, burstInput);
+        IupAppend(gbox, ioInput);
+    }
+
+    IupRefresh(gbox);
+
+    IupSetAttribute(gbox, "EXPANDCHILDREN", "HORIZONTAL");
+    IupSetAttribute(gbox, "NUMDIV", "4");
+    IupSetAttribute(gbox, "ALIGNMENTLIN", "ACENTER");
+    IupSetAttribute(gbox, "MARGIN", "10x10");
+    IupSetAttribute(gbox, "GAPLIN", "5");
+    IupSetAttribute(gbox, "GAPCOL", "5");
+    return gbox;
+}
+
+Ihandle *timeQuantumInput() {
+    Ihandle *timeQuantum;
+    timeQuantum = IupHbox
+    (
+      IupSetAttributes(IupLabel("Enter time quantum (ms):"), "FONTSTYLE=Bold"),
+      IupSetAttributes(IupText("Arrival Time"), "FILTER=NUMBER, SIZE=20x10, MARGIN=3x3"),
+      IupSetAttributes(IupLabel("(Max 100)"), "FONTSTYLE=Bold"),
+      NULL
+    );
+
+    return timeQuantum;
+}
+
+Ihandle *processNumInput() {
+    Ihandle *processNum;
+
+    processNum = IupHbox
+    (
+     IupSetAttributes(IupLabel("Enter number of processes:"), "FONTSTYLE=Bold"),
+     IupSetAttributes(IupList(NULL), "DROPDOWN=YES, 1=1,2=2,3=3,4=4,5=5,6=6,7=7,8=8,9=9,10=10"),
+     NULL
+    );
+
+    return processNum;
+}
+
+/* getProcessNum activates when the process number is selected.
+   Could be used to set number of rows in the grid */
+int getProcessNum(Ihandle *self){
+    char *processNumValue = IupGetAttribute(self, "VALUE");
+    int processNum = atoi(processNumValue);
+    printf("%d",processNum);
+    return IUP_DEFAULT;
+}
+
+/* getGridRowVal takes rowNum 0-9 and returns the 4 values in 4 columns
+   Would be used to create Processes*/
+int** getGridRowVal(Ihandle *grid, int rowNum){
+    int *intArr[4];
+    char *values[4];
+    Ihandle *v0 = IupGetChild(grid, rowNum*4);
+    Ihandle *v1 = IupGetBrother(v0);
+    Ihandle *v2 = IupGetBrother(v1);
+    Ihandle *v3 = IupGetBrother(v2);
+    values[0] = IupGetAttribute(v0, "TITLE");
+    values[1] = IupGetAttribute(v1, "TITLE");
+    values[2] = IupGetAttribute(v2, "TITLE");
+    values[3] = IupGetAttribute(v3, "TITLE");
+
+    intArr[0] = atoi(values[0]);
+    printf("%d", intArr[0]);
+    return values;
+}
+
+void RoundRobinInput()
+{
+  Ihandle *mainDialog;
+  Ihandle *timeQuantum;
+  Ihandle *processNum;
+  Ihandle *processNumBox;
+  Ihandle *gridFrame;
+  Ihandle *gridbox;
+
+  processNum = processNumInput();
+  processNumBox = IupGetChild(processNum, 1);
+  timeQuantum = timeQuantumInput();
+  gridbox = inputGrid();
+  gridFrame = IupFrame(gridbox);
+  Ihandle *runBtn = IupSetAttributes(IupButton("Run", NULL), "PADDING=3x3");
+
+  mainDialog = IupDialog
+  (
+    IupVbox
+    (
+      processNum,
+      timeQuantum,
+      gridFrame,
+      runBtn,
+      NULL      // Always end with NULL for this kind of IUP list
+    )
+  );
+
+  IupSetCallback(processNumBox, "VALUECHANGED_CB", (Icallback)getProcessNum);
+  IupSetAttribute(mainDialog, "TITLE", "Round Robin Input");
+  IupSetAttribute(mainDialog, "MARGIN", "10x10");
+  IupSetAttribute(gridFrame, "MARGIN", "0x0");   /* avoid attribute propagation */
+
+  /* Shows dlg in the center of the screen */
+  IupShowXY(mainDialog, IUP_CENTER, IUP_CENTER);
+
+}
+
+int main(int argc, char **argv) {
+
+    /* TODO: Display only, just close for now */
+    IupOpen(&argc, &argv);
+    RoundRobinInput();
+    IupMainLoop();
+    IupClose();
+
     do {
         printf("Enter number of processes (1-%d): ", MAX_PROCESSES);
         int check_process_count = scanf("%d", &num_processes);
@@ -218,7 +347,7 @@ void update_queue(Queue *ready_queue, int *current_time, int *executed_processes
     processes[current_process].is_ready = false;
     processes[current_process].is_running = true;
     output_process(*current_time, processes[current_process].process_id, RUNNING, processes[current_process].remaining_burst_time, processes[current_process].io_wait_time);
-   
+
     if (processes[current_process].response_time == -1) {
         processes[current_process].response_time = *current_time - processes[current_process].arrival_time;
     }
