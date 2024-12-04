@@ -108,6 +108,8 @@ Ihandle *inputGrid() {
       NULL
     );
 
+    IupSetAttribute(gbox, "NAME", "GRID");
+
     for(int i = 1; i < 11; i++){
         char index[4];
         sprintf(index, "%d", i);
@@ -134,9 +136,8 @@ Ihandle *inputGrid() {
 }
 
 Ihandle *timeQuantumInput() {
-    Ihandle *hbox;
-
-    hbox = IupHbox
+    Ihandle *timeQuantum;
+    timeQuantum = IupHbox
     (
       IupSetAttributes(IupLabel("Enter time quantum (ms):"), "FONTSTYLE=Bold"),
       IupSetAttributes(IupText("Arrival Time"), "FILTER=NUMBER, SIZE=20x10, MARGIN=3x3"),
@@ -144,34 +145,86 @@ Ihandle *timeQuantumInput() {
       NULL
     );
 
-    return hbox;
+    return timeQuantum;
+}
+
+Ihandle *processNumInput() {
+    Ihandle *processNum;
+
+    processNum = IupHbox
+    (
+     IupSetAttributes(IupLabel("Enter number of processes:"), "FONTSTYLE=Bold"),
+     IupSetAttributes(IupList(NULL), "DROPDOWN=YES, 1=1,2=2,3=3,4=4,5=5,6=6,7=7,8=8,9=9,10=10"),
+     NULL
+    );
+
+    return processNum;
+}
+
+/* getProcessNum activates when the process number is selected.
+   Could be used to set number of rows in the grid */
+int getProcessNum(Ihandle *self){
+    char *processNumValue = IupGetAttribute(self, "VALUE");
+    int processNum = atoi(processNumValue);
+    printf("%d",processNum);
+    return IUP_DEFAULT;
+}
+
+/* getGridRowVal takes rowNum 0-9 and returns the 4 values in 4 columns
+   Would be used to create Processes*/
+int** getGridRowVal(Ihandle *grid, int rowNum){
+    int *intArr[4];
+    char *values[4];
+    Ihandle *v0 = IupGetChild(grid, rowNum*4);
+    Ihandle *v1 = IupGetBrother(v0);
+    Ihandle *v2 = IupGetBrother(v1);
+    Ihandle *v3 = IupGetBrother(v2);
+    values[0] = IupGetAttribute(v0, "TITLE");
+    values[1] = IupGetAttribute(v1, "TITLE");
+    values[2] = IupGetAttribute(v2, "TITLE");
+    values[3] = IupGetAttribute(v3, "TITLE");
+
+    intArr[0] = atoi(values[0]);
+    printf("%d", intArr[0]);
+    return values;
 }
 
 void RoundRobinInput()
 {
   Ihandle *mainDialog;
+  Ihandle *timeQuantum;
+  Ihandle *processNum;
+  Ihandle *processNumBox;
   Ihandle *gridFrame;
-  Ihandle *topFrame;
+  Ihandle *gridbox;
 
-  topFrame = IupFrame(timeQuantumInput());
-  gridFrame = IupFrame(inputGrid());
+  processNum = processNumInput();
+  processNumBox = IupGetChild(processNum, 1);
+  timeQuantum = timeQuantumInput();
+  gridbox = inputGrid();
+  gridFrame = IupFrame(gridbox);
+  Ihandle *runBtn = IupSetAttributes(IupButton("Run", NULL), "PADDING=3x3");
 
   mainDialog = IupDialog
   (
     IupVbox
     (
-      topFrame,
+      processNum,
+      timeQuantum,
       gridFrame,
+      runBtn,
       NULL      // Always end with NULL for this kind of IUP list
     )
   );
 
+  IupSetCallback(processNumBox, "VALUECHANGED_CB", (Icallback)getProcessNum);
   IupSetAttribute(mainDialog, "TITLE", "Round Robin Input");
   IupSetAttribute(mainDialog, "MARGIN", "10x10");
   IupSetAttribute(gridFrame, "MARGIN", "0x0");   /* avoid attribute propagation */
 
   /* Shows dlg in the center of the screen */
   IupShowXY(mainDialog, IUP_CENTER, IUP_CENTER);
+
 }
 
 int main(int argc, char **argv) {
