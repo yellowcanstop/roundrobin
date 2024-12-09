@@ -4,5 +4,3 @@
 # generated directories
 bin/
 obj/
-#IUP library
-iuplib/
