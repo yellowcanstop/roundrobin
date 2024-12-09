@@ -10,6 +10,7 @@
 #define MAX_PROCESSES 10
 #define MAX_TIME_QUANTUM 100
 
+// Global variables
 Process processes[MAX_PROCESSES];
 int num_processes;
 int time_quantum;
@@ -96,6 +97,7 @@ void RoundRobinInput()
 }
 
 
+// Main function
 int main(int argc, char **argv) {
     IupOpen(&argc, &argv);
     RoundRobinInput();
@@ -116,6 +118,7 @@ int main(int argc, char **argv) {
 }
 
 
+// Helper function for input validation
 void check_positive_integer(const char* prompt, int* value) {
     int check;
     do {
@@ -129,6 +132,7 @@ void check_positive_integer(const char* prompt, int* value) {
 }
 
 
+// Get user input on individual processes
 void initialize_processes(Process processes[], int num_processes) {
     printf("Enter arrival times, burst times, and I/O wait times (0 if n/a) for each process:\n");
     printf("Note: For this simulation, I/O operations always happen after the process completes its CPU burst time.\n");
@@ -153,6 +157,7 @@ void initialize_processes(Process processes[], int num_processes) {
 }
 
 
+// Helper function to sort processes by arrival time
 void sort_processes_by_arrival_time(Process processes[], int num_processes) {
     for (int i = 0; i < num_processes; i++) {
         for (int j = i + 1; j < num_processes; j++) {
@@ -166,6 +171,7 @@ void sort_processes_by_arrival_time(Process processes[], int num_processes) {
 }
 
 
+// Helper function to sort processes by process id
 void sort_processes_by_process_id(Process processes[], int num_processes) {
     for (int i = 0; i < num_processes; i++) {
         for (int j = i + 1; j < num_processes; j++) {
@@ -179,6 +185,7 @@ void sort_processes_by_process_id(Process processes[], int num_processes) {
 }
 
 
+// Helper function to check for new arrivals and add them to the ready queue
 void check_for_new_arrivals(int *current_time, Queue *ready_queue) {
     for (int i = 0; i < num_processes; i++) {
         if (processes[i].arrival_time <= *current_time && !processes[i].in_queue && !processes[i].is_completed) {
@@ -191,7 +198,7 @@ void check_for_new_arrivals(int *current_time, Queue *ready_queue) {
 }
 
 
-// Add this function to log processes in the Gantt chart
+// Helper function to log processes in the Gantt chart
 void log_to_gantt_chart(Process process, int *current_time) {
     gantt_chart[gantt_size].process_id = process.process_id;
     gantt_chart[gantt_size].arrival_time = *current_time;
@@ -207,6 +214,8 @@ void log_to_gantt_chart(Process process, int *current_time) {
     gantt_size++;
 }
 
+
+// Helper function to update the ready queue and status of processes
 void update_queue(Queue *ready_queue, int *current_time, int *executed_processes, int *blocked_processes) {
     int current_process = dequeue(ready_queue);
     processes[current_process].is_ready = false;
@@ -260,10 +269,12 @@ void update_queue(Queue *ready_queue, int *current_time, int *executed_processes
 
         enqueue(ready_queue, current_process);
         processes[current_process].is_ready = true;
+        output_process(*current_time, processes[current_process].process_id, READY, processes[current_process].remaining_burst_time, processes[current_process].io_wait_time);
     }
 }
 
 
+// Helper function to check if blocked process has completed its I/O operation
 void check_blocked_processes(int *current_time, Queue *ready_queue, int *executed_processes, int *blocked_processes) {
     for (int i = 0; i < num_processes; i++) {
         if (processes[i].is_blocked && *current_time >= processes[i].blocked_until) {
@@ -278,6 +289,7 @@ void check_blocked_processes(int *current_time, Queue *ready_queue, int *execute
 }
 
 
+// Core round robin scheduler
 void round_robin_scheduler() {
     Queue *ready_queue = create_queue(num_processes + 1);
     enqueue(ready_queue, 0);
@@ -295,7 +307,6 @@ void round_robin_scheduler() {
 
     output_process(current_time, processes[0].process_id, READY, processes[0].remaining_burst_time, processes[0].io_wait_time);
 
-
     while (!is_queue_empty(ready_queue) || blocked_processes > 0) {
         check_blocked_processes(&current_time, ready_queue, &executed_processes, &blocked_processes);
         if (!is_queue_empty(ready_queue)) {
@@ -309,6 +320,7 @@ void round_robin_scheduler() {
 }
 
 
+// Helper function to print status of process throughout the round robin scheduling simulation
 void output_process(int current_time, int process_id, Status process_status, int remaining_burst_time, int io_wait_time) {
     char *status;
     switch (process_status) {
@@ -329,6 +341,7 @@ void output_process(int current_time, int process_id, Status process_status, int
 }
 
 
+// Output the results to console for individual processes and overall system
 void output_results() {
     double total_turnaround_time = 0;
     double total_waiting_time = 0;
@@ -353,6 +366,8 @@ void output_results() {
     printf("Total CPU Utilization (%%): %.2f%%\n", total_burst_time / (total_burst_time + total_waiting_time) * 100);
 }
 
+
+// Output the gantt chart to console
 void print_gantt_chart(Process p[], int n)
 {
     int i, j;
@@ -396,6 +411,5 @@ void print_gantt_chart(Process p[], int n)
 
     }
     printf("\n");
-
 }
 
