@@ -229,22 +229,27 @@ void update_queue(Queue *ready_queue, int *current_time, int *executed_processes
     processes[current_process].is_running = true;
     output_process(*current_time, processes[current_process].process_id, RUNNING, processes[current_process].remaining_burst_time, processes[current_process].io_wait_time);
 
+    // if process has not been responded to yet, calculate response time
     if (processes[current_process].response_time == -1) {
         processes[current_process].response_time = *current_time - processes[current_process].arrival_time;
     }
 
+    // if process will complete within the time quantum
     if (processes[current_process].remaining_burst_time <= time_quantum) {
         log_to_gantt_chart(processes[current_process], current_time);
         processes[current_process].is_running = false;
         *current_time += processes[current_process].remaining_burst_time;
         processes[current_process].remaining_burst_time = 0;
 
+        // if process has I/O operation, block it
         if (processes[current_process].io_wait_time > 0) {
             (*blocked_processes)++;
             processes[current_process].is_blocked = true;
             processes[current_process].blocked_until = *current_time + processes[current_process].io_wait_time;
             output_process(*current_time, processes[current_process].process_id, BLOCKED, processes[current_process].remaining_burst_time, processes[current_process].io_wait_time);
-        } else {
+        } 
+        // if process has completed all operations
+        else {
             processes[current_process].is_completed = true;
             processes[current_process].completion_time = *current_time;
             processes[current_process].turnaround_time = processes[current_process].completion_time - processes[current_process].arrival_time;
@@ -253,27 +258,37 @@ void update_queue(Queue *ready_queue, int *current_time, int *executed_processes
             output_process(*current_time, processes[current_process].process_id, COMPLETED, processes[current_process].remaining_burst_time, processes[current_process].io_wait_time);
         }
 
+        // check for blocked processes
         if (*blocked_processes != 0) {
             check_blocked_processes(current_time, ready_queue, executed_processes, blocked_processes);
         }
 
+        // check for new arrivals
         if (*executed_processes != num_processes) {
             check_for_new_arrivals(current_time, ready_queue);
         }
-    } else {
+    } 
+    // if process will not complete within the time quantum
+    else {
+        // run process for time quantum
         log_to_gantt_chart(processes[current_process], current_time);
         processes[current_process].remaining_burst_time -= time_quantum;
         *current_time += time_quantum;
+        
+        // preempt process
         processes[current_process].is_running = false;
 
+        // check for blocked processes
         if (*blocked_processes != 0) {
             check_blocked_processes(current_time, ready_queue, executed_processes, blocked_processes);
         }
 
+        // check for new arrivals
         if (*executed_processes != num_processes) {
             check_for_new_arrivals(current_time, ready_queue);
         }
 
+        // add process back to queue
         enqueue(ready_queue, current_process);
         processes[current_process].is_ready = true;
         output_process(*current_time, processes[current_process].process_id, READY, processes[current_process].remaining_burst_time, processes[current_process].io_wait_time);
@@ -308,17 +323,20 @@ void round_robin_scheduler() {
     int executed_processes = 0;
     int blocked_processes = 0;
 
+    // Wait for first process to arrive
     while (processes[0].arrival_time != current_time) {
         current_time++;
     }
 
     output_process(current_time, processes[0].process_id, READY, processes[0].remaining_burst_time, processes[0].io_wait_time);
 
+    // Core loop for round robin scheduling
     while (!is_queue_empty(ready_queue) || blocked_processes > 0) {
         check_blocked_processes(&current_time, ready_queue, &executed_processes, &blocked_processes);
         if (!is_queue_empty(ready_queue)) {
             update_queue(ready_queue, &current_time, &executed_processes, &blocked_processes);
-        } else {
+        } 
+        else {
             current_time++;
         }
     }
