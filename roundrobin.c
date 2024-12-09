@@ -226,7 +226,6 @@ int main(int argc, char **argv) {
     IupMainLoop();
     IupClose();
 
-int main() {
     do {
         printf("Enter number of processes (1-%d): ", MAX_PROCESSES);
         int check_process_count = scanf("%d", &num_processes);
