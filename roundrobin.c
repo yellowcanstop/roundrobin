@@ -110,9 +110,9 @@ int main(int argc, char **argv) {
 
     sort_processes_by_arrival_time(processes, num_processes);
 
-    printf("\nNote: For this simulation, I/O operations always happen after CPU operations.\n");
+    printf("\nNote: For this simulation, I/O operations always happen after initial CPU operations.\n");
 
-    printf("\nTime\tProcess ID\tRemaining Time\tStatus");
+    printf("\nTime\tPID\tBurst\tI/O\tRemaining Time\tStatus");
 
     round_robin_scheduler();
 
@@ -226,21 +226,43 @@ void log_to_gantt_chart(Process process, int *current_time) {
 void update_queue(Queue *ready_queue, int *current_time, int *executed_processes, int *blocked_processes) {
     int current_process = dequeue(ready_queue);
     processes[current_process].is_ready = false;
-    processes[current_process].is_running = true;
-    output_process(*current_time, processes[current_process].process_id, RUNNING, processes[current_process].remaining_burst_time, processes[current_process].io_wait_time);
+   
+    // if process has had one time quantum of CPU usage and it has I/O operation, block it
+    // this aligns with the assumption that I/O operations always happen after CPU operations
+    if (processes[current_process].response_time != -1 && processes[current_process].io_wait_time > 0) {
+        processes[current_process].is_running = false;
+        (*blocked_processes)++;
+        processes[current_process].is_blocked = true;
+        processes[current_process].blocked_until = *current_time + processes[current_process].io_wait_time;
+        output_process(*current_time, processes[current_process].process_id, BLOCKED, processes[current_process].remaining_burst_time, processes[current_process].io_wait_time);
+        return;
+    } 
 
     // if process has not been responded to yet, calculate response time
     if (processes[current_process].response_time == -1) {
         processes[current_process].response_time = *current_time - processes[current_process].arrival_time;
     }
 
+    // if process has completed all operations
+    if (processes[current_process].remaining_burst_time == 0 && processes[current_process].io_wait_time == 0) {
+        processes[current_process].is_completed = true;
+        processes[current_process].completion_time = *current_time;
+        processes[current_process].turnaround_time = processes[current_process].completion_time - processes[current_process].arrival_time;
+        processes[current_process].waiting_time = processes[current_process].turnaround_time - processes[current_process].burst_time;
+        (*executed_processes)++;
+        output_process(*current_time, processes[current_process].process_id, COMPLETED, processes[current_process].remaining_burst_time, processes[current_process].io_wait_time);
+        return;
+    }
+
     // if process will complete within the time quantum
-    if (processes[current_process].remaining_burst_time <= time_quantum) {
+    if (processes[current_process].remaining_burst_time <= time_quantum) {        
+        processes[current_process].is_running = true;
+        output_process(*current_time, processes[current_process].process_id, RUNNING, processes[current_process].remaining_burst_time, processes[current_process].io_wait_time);
         log_to_gantt_chart(processes[current_process], current_time);
         processes[current_process].is_running = false;
         *current_time += processes[current_process].remaining_burst_time;
         processes[current_process].remaining_burst_time = 0;
-
+      
         // if process has I/O operation, block it
         if (processes[current_process].io_wait_time > 0) {
             (*blocked_processes)++;
@@ -271,17 +293,14 @@ void update_queue(Queue *ready_queue, int *current_time, int *executed_processes
     // if process will not complete within the time quantum
     else {
         // run process for time quantum
+        processes[current_process].is_running = true;
+        output_process(*current_time, processes[current_process].process_id, RUNNING, processes[current_process].remaining_burst_time, processes[current_process].io_wait_time);
         log_to_gantt_chart(processes[current_process], current_time);
         processes[current_process].remaining_burst_time -= time_quantum;
         *current_time += time_quantum;
         
         // preempt process
         processes[current_process].is_running = false;
-
-        // check for blocked processes
-        if (*blocked_processes != 0) {
-            check_blocked_processes(current_time, ready_queue, executed_processes, blocked_processes);
-        }
 
         // check for new arrivals
         if (*executed_processes != num_processes) {
@@ -292,6 +311,11 @@ void update_queue(Queue *ready_queue, int *current_time, int *executed_processes
         enqueue(ready_queue, current_process);
         processes[current_process].is_ready = true;
         output_process(*current_time, processes[current_process].process_id, READY, processes[current_process].remaining_burst_time, processes[current_process].io_wait_time);
+
+        // check for blocked processes
+        if (*blocked_processes != 0) {
+            check_blocked_processes(current_time, ready_queue, executed_processes, blocked_processes);
+        }
     }
 }
 
@@ -366,11 +390,13 @@ void output_process(int current_time, int process_id, Status process_status, int
     // Log status change
     process_status_log[status_log_size].time = current_time;
     process_status_log[status_log_size].process_id = process_id;
-    process_status_log[status_log_size].remaining_burst_time = remaining_burst_time + io_wait_time;
+    process_status_log[status_log_size].remaining_burst_time = remaining_burst_time;
+    process_status_log[status_log_size].io_wait_time = io_wait_time;
+    process_status_log[status_log_size].remaining_time = remaining_burst_time + io_wait_time;
     strncpy(process_status_log[status_log_size].status, status, sizeof(process_status_log[status_log_size].status) - 1);
     status_log_size++;
 
-    printf("\n%d\t%d\t\t%d\t\t%s", current_time, process_id, remaining_burst_time + io_wait_time, status);
+    printf("\n%d\t%d\t%d\t%d\t%d\t\t%s", current_time, process_id, remaining_burst_time, io_wait_time, remaining_burst_time + io_wait_time, status);
 }
 
 
@@ -458,12 +484,14 @@ void export_analysis_to_file() {
     }
 
     // Export process status to file
-    fprintf(file, "\nProcess ID\tTurnaround Time\tWaiting Time\tResponse Time\n");
+    fprintf(file, "\nTime\tPID\tRemaining Burst Time\tI/O Wait Time\tRemaining Time\tStatus");
     for (int i = 0; i < status_log_size; i++) {
-        fprintf(file, "%-10d\t%-15d\t%-15d\t%-10s\n",
+        fprintf(file, "\n%d\t\t%d\t\t%d\t\t\t%d\t\t\t%d\t\t\t%s",
                 process_status_log[i].time,
                 process_status_log[i].process_id,
                 process_status_log[i].remaining_burst_time,
+                process_status_log[i].io_wait_time,
+                process_status_log[i].remaining_time,
                 process_status_log[i].status);
     }
 

@@ -23,6 +23,8 @@ typedef struct {
     int time;
     int process_id;
     int remaining_burst_time;
+    int io_wait_time;
+    int remaining_time;
     char status[10]; // Store status like "READY", "RUNNING", "BLOCKED", "COMPLETED"
 } ProcessStatusLog;
 
