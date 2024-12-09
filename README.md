@@ -11,3 +11,6 @@
 gcc.exe -Wall -g -Wextra -Wall -Iiuplib\include -Iiuplib -c C:\{YOUR_PATH_HERE}\git\roundrobin\roundrobin.c -o obj\Debug\roundrobin.o
 gcc.exe -Liuplib -o bin\Debug\RoundRobin.exe obj\Debug\roundrobin.o   -lgdi32 -luser32 -lkernel32 -lcomctl32 iuplib\libiup.a
 ```
+
+## With .exe
+- iup.dll needs to be in the same folder as the .exe
