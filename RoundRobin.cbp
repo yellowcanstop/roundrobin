@@ -41,9 +41,18 @@
 			<Add library="iuplib/libiup.a" />
 			<Add directory="iuplib" />
 		</Linker>
+		<Unit filename="queue.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="queue.h" />
+		<Unit filename="robinui.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="robinui.h" />
 		<Unit filename="roundrobin.c">
 			<Option compilerVar="CC" />
 		</Unit>
+		<Unit filename="roundrobin.h" />
 		<Extensions />
 	</Project>
 </CodeBlocks_project_file>
