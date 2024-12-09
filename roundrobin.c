@@ -3,102 +3,12 @@
 #include <stdbool.h>
 #include <iup.h>
 
+#include "queue.h"
+#include "robinui.h"
+#include "roundrobin.h"
+
 #define MAX_PROCESSES 10
-#define MAX_TIME_QUANTUM 100 // from Slide 35
-
-
-typedef struct {
-    int *data;
-    int front;
-    int rear;
-    int capacity;
-} Queue;
-
-
-Queue* create_queue(int capacity) {
-    Queue *queue = (Queue*)malloc(sizeof(Queue));
-    queue->capacity = capacity;
-    queue->front = queue->rear = 0;
-    queue->data = (int*)malloc(queue->capacity * sizeof(int));
-    return queue;
-}
-
-
-bool is_queue_empty(Queue *queue) {
-    return queue->front == queue->rear;
-}
-
-
-bool is_queue_full(Queue *queue) {
-    return (queue->rear + 1) % queue->capacity == queue->front;
-}
-
-
-void enqueue(Queue *queue, int item) {
-    if (is_queue_full(queue)) {
-        printf("Queue is full\n");
-        return;
-    }
-    queue->data[queue->rear] = item;
-    queue->rear = (queue->rear + 1) % queue->capacity;
-}
-
-
-int dequeue(Queue *queue) {
-    if (is_queue_empty(queue)) {
-        printf("Queue is empty\n");
-        return -1;
-    }
-    int item = queue->data[queue->front];
-    queue->front = (queue->front + 1) % queue->capacity;
-    return item;
-}
-
-
-void free_queue(Queue *queue) {
-    free(queue->data);
-    free(queue);
-}
-
-
-typedef struct {
-    int process_id;
-    int arrival_time;
-    int burst_time;
-    int remaining_burst_time;
-    int io_wait_time; // I/O operations always happen after the process completes its burst time
-    int completion_time;
-    int turnaround_time;
-    int waiting_time;
-    int response_time;
-    int blocked_until;
-    bool is_completed;
-    bool in_queue;
-    bool is_ready;
-    bool is_running;
-    bool is_blocked;
-} Process;
-
-
-typedef enum {
-    READY,
-    RUNNING,
-    BLOCKED,
-    COMPLETED
-} Status;
-
-
-void check_positive_integer(const char* prompt, int* value);
-void initialize_processes(Process processes[], int num_processes);
-void sort_processes_by_arrival_time(Process processes[], int num_processes);
-void sort_processes_by_process_id(Process processes[], int num_processes);
-void check_for_new_arrivals(int *current_time, Queue *ready_queue);
-void check_blocked_processes(int *current_time, Queue *ready_queue, int *executed_processes, int *blocked_processes);
-void update_queue(Queue *ready_queue, int *current_time, int *executed_processes, int *blocked_processes);
-void round_robin_scheduler();
-void output_process(int current_time, int process_id, Status process_status, int remaining_burst_time, int io_wait_time);
-void output_results();
-
+#define MAX_TIME_QUANTUM 100
 
 Process processes[MAX_PROCESSES];
 int num_processes;
@@ -107,146 +17,90 @@ int time_quantum;
 Process gantt_chart[1000]; // Array to store the process execution timeline
 int gantt_size = 0;    // Tracks the total timeline size
 
-Ihandle *inputGrid() {
-    Ihandle *gbox;
-    gbox = IupGridBox
-    (
-      IupSetAttributes(IupLabel("PID"), "FONTSTYLE=Bold"),
-      IupSetAttributes(IupLabel("Arrival Time"), "FONTSTYLE=Bold"),
-      IupSetAttributes(IupLabel("Burst Time"), "FONTSTYLE=Bold"),
-      IupSetAttributes(IupLabel("I/O Time"), "FONTSTYLE=Bold"),
-      NULL
-    );
-    IupSetAttribute(gbox, "NAME", "GRID");
-    for(int i = 1; i < 11; i++){
-        char index[4];
-        sprintf(index, "%d", i);
-        Ihandle *pid = IupSetAttributes(IupLabel(index), "ALIGNMENT=ACENTER");
-        Ihandle *arrivalInput = IupSetAttributes(IupText("0"), "FILTER=NUMBER, PADDING=3x3");
-        Ihandle *burstInput = IupSetAttributes(IupText("0"), "FILTER=NUMBER, PADDING=3x3");
-        Ihandle *ioInput = IupSetAttributes(IupText("0"), "FILTER=NUMBER, PADDING=3x3");
-        IupAppend(gbox, pid);
-        IupAppend(gbox, arrivalInput);
-        IupAppend(gbox, burstInput);
-        IupAppend(gbox, ioInput);
+
+void fillProcesses(Process processes[], Ihandle* grid){
+    printf("PID\tAT\tBT\tIOT\n");
+    printf("Time Quantum: %dms\n", time_quantum);
+    for(int i = 0; i < num_processes; i++){
+        int PID = i+1;
+        int AT = getCellValue(grid, PID, 1);
+        int BT = getCellValue(grid, PID, 2);
+        int IOT = getCellValue(grid, PID, 3);
+        processes[i].process_id = PID;
+        processes[i].arrival_time = AT;
+        processes[i].burst_time = BT;
+        processes[i].io_wait_time = IOT;
+        processes[i].remaining_burst_time = processes[i].burst_time;
+        processes[i].turnaround_time = 0;
+        processes[i].waiting_time = 0;
+        processes[i].response_time = -1;
+        processes[i].blocked_until = -1;
+        processes[i].is_completed = false;
+        processes[i].in_queue = false;
+        processes[i].is_ready = false;
+        processes[i].is_running = false;
+        processes[i].is_blocked = false;
+        printf("%d\t%d\t%d\t%d\n", PID, AT, BT, IOT);
     }
-    IupRefresh(gbox);
-    IupSetAttribute(gbox, "EXPANDCHILDREN", "HORIZONTAL");
-    IupSetAttribute(gbox, "NUMDIV", "4");
-    IupSetAttribute(gbox, "ALIGNMENTLIN", "ACENTER");
-    IupSetAttribute(gbox, "MARGIN", "10x10");
-    IupSetAttribute(gbox, "GAPLIN", "5");
-    IupSetAttribute(gbox, "GAPCOL", "5");
-    return gbox;
 }
-Ihandle *timeQuantumInput() {
-    Ihandle *timeQuantum;
-    timeQuantum = IupHbox
-    (
-      IupSetAttributes(IupLabel("Enter time quantum (ms):"), "FONTSTYLE=Bold"),
-      IupSetAttributes(IupText("Arrival Time"), "FILTER=NUMBER, SIZE=20x10, MARGIN=3x3"),
-      IupSetAttributes(IupLabel("(Max 100)"), "FONTSTYLE=Bold"),
-      NULL
-    );
-    return timeQuantum;
+
+int configRoundRobin(Ihandle *self){
+    Ihandle *tqVal = IupGetDialogChild(self, "TQINPUT");
+    char* timeQuantumStr = IupGetAttribute(tqVal, "VALUE");
+    time_quantum = atoi(timeQuantumStr);
+
+    Ihandle* processNumHnd = IupGetDialogChild(self, "processNum");
+    char* processNumStr = IupGetAttribute(processNumHnd, "VALUE");
+    num_processes = atoi(processNumStr);
+
+    Ihandle* grid = IupGetDialogChild(self, "GRID");
+    fillProcesses(processes, grid);
+    return IUP_CLOSE;
 }
-Ihandle *processNumInput() {
-    Ihandle *processNum;
-    processNum = IupHbox
-    (
-     IupSetAttributes(IupLabel("Enter number of processes:"), "FONTSTYLE=Bold"),
-     IupSetAttributes(IupList(NULL), "DROPDOWN=YES, 1=1,2=2,3=3,4=4,5=5,6=6,7=7,8=8,9=9,10=10"),
-     NULL
-    );
-    return processNum;
-}
-/* getProcessNum activates when the process number is selected.
-   Could be used to set number of rows in the grid */
-int getProcessNum(Ihandle *self){
-    char *processNumValue = IupGetAttribute(self, "VALUE");
-    int processNum = atoi(processNumValue);
-    printf("%d",processNum);
-    return IUP_DEFAULT;
-}
-/* getGridRowVal takes rowNum 0-9 and returns the 4 values in 4 columns
-   Would be used to create Processes*/
-int** getGridRowVal(Ihandle *grid, int rowNum){
-    int *intArr[4];
-    char *values[4];
-    Ihandle *v0 = IupGetChild(grid, rowNum*4);
-    Ihandle *v1 = IupGetBrother(v0);
-    Ihandle *v2 = IupGetBrother(v1);
-    Ihandle *v3 = IupGetBrother(v2);
-    values[0] = IupGetAttribute(v0, "TITLE");
-    values[1] = IupGetAttribute(v1, "TITLE");
-    values[2] = IupGetAttribute(v2, "TITLE");
-    values[3] = IupGetAttribute(v3, "TITLE");
-    intArr[0] = atoi(values[0]);
-    printf("%d", intArr[0]);
-    return values;
-}
+
 void RoundRobinInput()
 {
-  Ihandle *mainDialog;
-  Ihandle *timeQuantum;
-  Ihandle *processNum;
-  Ihandle *processNumBox;
-  Ihandle *gridFrame;
-  Ihandle *gridbox;
-  processNum = processNumInput();
-  processNumBox = IupGetChild(processNum, 1);
-  timeQuantum = timeQuantumInput();
-  gridbox = inputGrid();
-  gridFrame = IupFrame(gridbox);
-  Ihandle *runBtn = IupSetAttributes(IupButton("Run", NULL), "PADDING=3x3");
-  mainDialog = IupDialog
-  (
+    Ihandle *mainDialog;
+    Ihandle *timeQuantum;
+    Ihandle *processNum;
+    Ihandle *processNumBtn;
+    Ihandle *gridFrame;
+    Ihandle *gridbox;
+    Ihandle *runBtn;
+    processNum = processNumInput();
+    processNumBtn = IupGetChild(processNum, 2);
+    timeQuantum = timeQuantumInput();
+
+    gridbox = inputGrid();
+    gridFrame = IupFrame(gridbox);
+    runBtn = IupSetAttributes(IupButton("Run", NULL), "PADDING=3x3");
+    mainDialog = IupDialog
+    (
     IupVbox
     (
-      processNum,
-      timeQuantum,
-      gridFrame,
-      runBtn,
-      NULL      // Always end with NULL for this kind of IUP list
+        processNum,
+        timeQuantum,
+        gridFrame,
+        runBtn,
+        NULL      // Always end with NULL for this kind of IUP list
     )
-  );
-  IupSetCallback(processNumBox, "VALUECHANGED_CB", (Icallback)getProcessNum);
-  IupSetAttribute(mainDialog, "TITLE", "Round Robin Input");
-  IupSetAttribute(mainDialog, "MARGIN", "10x10");
-  IupSetAttribute(gridFrame, "MARGIN", "0x0");   /* avoid attribute propagation */
-  /* Shows dlg in the center of the screen */
-  IupShowXY(mainDialog, IUP_CENTER, IUP_CENTER);
+    );
+    IupSetCallback(processNumBtn, "ACTION", (Icallback)setProcessNum);
+    IupSetCallback(runBtn, "ACTION", (Icallback)configRoundRobin);
+
+    IupSetAttribute(mainDialog, "TITLE", "Round Robin Input");
+    IupSetAttribute(mainDialog, "MARGIN", "10x10");
+    IupSetAttribute(gridFrame, "MARGIN", "0x0");   /* avoid attribute propagation */
+    /* Shows dlg in the center of the screen */
+    IupShowXY(mainDialog, IUP_CENTER, IUP_CENTER);
 }
 
 
 int main(int argc, char **argv) {
-    /* TODO: Display only, just close for now */
     IupOpen(&argc, &argv);
     RoundRobinInput();
     IupMainLoop();
     IupClose();
-
-    do {
-        printf("Enter number of processes (1-%d): ", MAX_PROCESSES);
-        int check_process_count = scanf("%d", &num_processes);
-        while (getchar() != '\n');
-        if (check_process_count != 1 || num_processes < 1 || num_processes > MAX_PROCESSES) {
-            printf("Invalid: number of processes needs to be between 1 and %d.\n", MAX_PROCESSES);
-        }
-    } while (num_processes < 1 || num_processes > MAX_PROCESSES);
-
-    do {
-        printf("Enter time quantum (TQ) in milliseconds (at most %d ms): ", MAX_TIME_QUANTUM);
-        int check_time_quantum = scanf("%d", &time_quantum);
-        while (getchar() != '\n');
-        if (check_time_quantum != 1 || time_quantum < 0 || time_quantum > MAX_TIME_QUANTUM) {
-            printf("Invalid: time quantum needs to be a positive integer and less than %d ms.\n", MAX_TIME_QUANTUM);
-        }
-    } while (time_quantum < 0 || time_quantum > MAX_TIME_QUANTUM);
-
-
-
-    initialize_processes(processes, num_processes);
 
     sort_processes_by_arrival_time(processes, num_processes);
 
