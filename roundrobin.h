@@ -19,6 +19,13 @@ typedef struct {
     bool is_blocked;
 } Process;
 
+typedef struct {
+    int time;
+    int process_id;
+    int remaining_burst_time;
+    char status[10]; // Store status like "READY", "RUNNING", "BLOCKED", "COMPLETED"
+} ProcessStatusLog;
+
 typedef enum {
     READY,
     RUNNING,
@@ -36,5 +43,7 @@ void update_queue(Queue *ready_queue, int *current_time, int *executed_processes
 void round_robin_scheduler();
 void output_process(int current_time, int process_id, Status process_status, int remaining_burst_time, int io_wait_time);
 void output_results();
+void print_gantt_chart(Process p[], int n);
+void export_analysis_to_file();
 
 #endif // ROUNDROBIN_H_INCLUDED

@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include "queue.h"
 
+// Create a queue
 Queue* create_queue(int capacity) {
     Queue *queue = (Queue*)malloc(sizeof(Queue));
     queue->capacity = capacity;
@@ -10,16 +11,19 @@ Queue* create_queue(int capacity) {
 }
 
 
+// Check if the queue is empty
 bool is_queue_empty(Queue *queue) {
     return queue->front == queue->rear;
 }
 
 
+// Check if the queue is full
 bool is_queue_full(Queue *queue) {
     return (queue->rear + 1) % queue->capacity == queue->front;
 }
 
 
+// Add an item to the queue
 void enqueue(Queue *queue, int item) {
     if (is_queue_full(queue)) {
         printf("Queue is full\n");
@@ -30,6 +34,7 @@ void enqueue(Queue *queue, int item) {
 }
 
 
+// Remove an item from the queue
 int dequeue(Queue *queue) {
     if (is_queue_empty(queue)) {
         printf("Queue is empty\n");
@@ -41,6 +46,7 @@ int dequeue(Queue *queue) {
 }
 
 
+// Free the queue
 void free_queue(Queue *queue) {
     free(queue->data);
     free(queue);

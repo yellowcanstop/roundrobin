@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <iup.h>
+#include <string.h>
 
 #include "queue.h"
 #include "robinui.h"
@@ -17,6 +18,9 @@ int time_quantum;
 
 Process gantt_chart[1000]; // Array to store the process execution timeline
 int gantt_size = 0;    // Tracks the total timeline size
+
+ProcessStatusLog process_status_log[MAX_PROCESSES * MAX_TIME_QUANTUM];
+int status_log_size = 0;
 
 
 void fillProcesses(Process processes[], Ihandle* grid){
@@ -106,13 +110,18 @@ int main(int argc, char **argv) {
 
     sort_processes_by_arrival_time(processes, num_processes);
 
+    printf("\nNote: For this simulation, I/O operations always happen after CPU operations.\n");
+
     printf("\nTime\tProcess ID\tRemaining Time\tStatus");
 
     round_robin_scheduler();
 
     output_results();
 
+    printf("\nGantt Chart:\n");
     print_gantt_chart(gantt_chart,gantt_size);
+
+    printf("\nPlease see saved results in analysis.txt\n");
 
     return 0;
 }
@@ -135,7 +144,6 @@ void check_positive_integer(const char* prompt, int* value) {
 // Get user input on individual processes
 void initialize_processes(Process processes[], int num_processes) {
     printf("Enter arrival times, burst times, and I/O wait times (0 if n/a) for each process:\n");
-    printf("Note: For this simulation, I/O operations always happen after the process completes its CPU burst time.\n");
     for (int i = 0; i < num_processes; i++) {
         printf("\nProcess %d:\n", i + 1);
         check_positive_integer("Arrival time = ", &processes[i].arrival_time);
@@ -153,7 +161,6 @@ void initialize_processes(Process processes[], int num_processes) {
         processes[i].is_running = false;
         processes[i].is_blocked = false;
     }
-    printf("\nThank you for your input.\n\n");
 }
 
 
@@ -337,6 +344,14 @@ void output_process(int current_time, int process_id, Status process_status, int
             status = "COMPLETED";
             break;
     }
+
+    // Log status change
+    process_status_log[status_log_size].time = current_time;
+    process_status_log[status_log_size].process_id = process_id;
+    process_status_log[status_log_size].remaining_burst_time = remaining_burst_time + io_wait_time;
+    strncpy(process_status_log[status_log_size].status, status, sizeof(process_status_log[status_log_size].status) - 1);
+    status_log_size++;
+
     printf("\n%d\t%d\t\t%d\t\t%s", current_time, process_id, remaining_burst_time + io_wait_time, status);
 }
 
@@ -364,6 +379,8 @@ void output_results() {
     printf("Average Waiting Time (ms): %.2f\n", total_waiting_time / num_processes);
     printf("Average Response Time (ms): %.2f\n", total_response_time / num_processes);
     printf("Total CPU Utilization (%%): %.2f%%\n", total_burst_time / (total_burst_time + total_waiting_time) * 100);
+
+    export_analysis_to_file();
 }
 
 
@@ -413,3 +430,79 @@ void print_gantt_chart(Process p[], int n)
     printf("\n");
 }
 
+
+// Save output to file
+void export_analysis_to_file() {
+    FILE *file = fopen("analysis.txt", "w");
+    if (file == NULL) {
+        printf("Error opening file!\n");
+        return;
+    }
+
+    // Export process status to file
+    fprintf(file, "\nProcess ID\tTurnaround Time\tWaiting Time\tResponse Time\n");
+    for (int i = 0; i < status_log_size; i++) {
+        fprintf(file, "%-10d\t%-15d\t%-15d\t%-10s\n",
+                process_status_log[i].time,
+                process_status_log[i].process_id,
+                process_status_log[i].remaining_burst_time,
+                process_status_log[i].status);
+    }
+
+    // Export process analysis to file
+    fprintf(file, "\n\nProcess ID\tTurnaround Time\tWaiting Time\tResponse Time\n");
+    double total_turnaround_time = 0;
+    double total_waiting_time = 0;
+    double total_response_time = 0;
+    double total_burst_time = 0;
+
+    for (int i = 0; i < num_processes; i++) {
+        total_turnaround_time += processes[i].turnaround_time;
+        total_waiting_time += processes[i].waiting_time;
+        total_response_time += processes[i].response_time;
+        total_burst_time += processes[i].burst_time;
+
+        fprintf(file, "%d\t\t%d\t\t%d\t\t%d\n", processes[i].process_id, processes[i].turnaround_time, processes[i].waiting_time, processes[i].response_time);
+    }
+
+    fprintf(file, "\nAverage Turnaround Time (ms): %.2f\n", total_turnaround_time / num_processes);
+    fprintf(file, "Average Waiting Time (ms): %.2f\n", total_waiting_time / num_processes);
+    fprintf(file, "Average Response Time (ms): %.2f\n", total_response_time / num_processes);
+    fprintf(file, "Total CPU Utilization (%%): %.2f%%\n", total_burst_time / (total_burst_time + total_waiting_time) * 100);
+
+    // Export Gantt chart to file
+    fprintf(file, "\nGantt Chart:\n ");
+    for (int i = 0; i < gantt_size; i++) {
+        int num_line = (gantt_chart[i].burst_time / 2) < 1 ? 1 : gantt_chart[i].burst_time / 2;
+        for (int j = 0; j < num_line; j++) fprintf(file, "---");
+        fprintf(file, " ");
+    }
+    fprintf(file, "\n|");
+
+    for (int i = 0; i < gantt_size; i++) {
+        int num_line = (gantt_chart[i].burst_time / 2) < 1 ? 1 : gantt_chart[i].burst_time / 2;
+        for (int j = 0; j < (num_line - 1); j++) fprintf(file, " ");
+        fprintf(file, "P%-2d", gantt_chart[i].process_id);
+        for (int j = 0; j < (num_line - 1); j++) fprintf(file, " ");
+        fprintf(file, "|");
+    }
+    fprintf(file, "\n ");
+
+    for (int i = 0; i < gantt_size; i++) {
+        int num_line = (gantt_chart[i].burst_time / 2) < 1 ? 1 : gantt_chart[i].burst_time / 2;
+        for (int j = 0; j < num_line; j++) fprintf(file, "---");
+        fprintf(file, " ");
+    }
+
+    fprintf(file, "\n");
+
+    fprintf(file, "%d", gantt_chart[0].arrival_time);
+    for (int i = 0; i < gantt_size; i++) {
+        int num_line = (gantt_chart[i].burst_time / 2) < 1 ? 1 : gantt_chart[i].burst_time / 2;
+        for (int j = 0; j < num_line; j++) fprintf(file, "  ");
+        fprintf(file, "%d", gantt_chart[i].turnaround_time);
+    }
+    fprintf(file, "\n");
+
+    fclose(file);
+}
