@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include <iup.h>
+
 
 #define MAX_PROCESSES 10
 #define MAX_TIME_QUANTUM 100 // from Slide 35
@@ -23,13 +23,16 @@ Queue* create_queue(int capacity) {
     return queue;
 }
 
+
 bool is_queue_empty(Queue *queue) {
     return queue->front == queue->rear;
 }
 
+
 bool is_queue_full(Queue *queue) {
     return (queue->rear + 1) % queue->capacity == queue->front;
 }
+
 
 void enqueue(Queue *queue, int item) {
     if (is_queue_full(queue)) {
@@ -39,6 +42,7 @@ void enqueue(Queue *queue, int item) {
     queue->data[queue->rear] = item;
     queue->rear = (queue->rear + 1) % queue->capacity;
 }
+
 
 int dequeue(Queue *queue) {
     if (is_queue_empty(queue)) {
@@ -50,10 +54,12 @@ int dequeue(Queue *queue) {
     return item;
 }
 
+
 void free_queue(Queue *queue) {
     free(queue->data);
     free(queue);
 }
+
 
 typedef struct {
     int process_id;
@@ -72,6 +78,7 @@ typedef struct {
     bool is_running;
     bool is_blocked;
 } Process;
+
 
 typedef enum {
     READY,
@@ -97,144 +104,12 @@ Process processes[MAX_PROCESSES];
 int num_processes;
 int time_quantum;
 
-Ihandle *inputGrid() {
-    Ihandle *gbox;
-    gbox = IupGridBox
-    (
-      IupSetAttributes(IupLabel("PID"), "FONTSTYLE=Bold"),
-      IupSetAttributes(IupLabel("Arrival Time"), "FONTSTYLE=Bold"),
-      IupSetAttributes(IupLabel("Burst Time"), "FONTSTYLE=Bold"),
-      IupSetAttributes(IupLabel("I/O Time"), "FONTSTYLE=Bold"),
-      NULL
-    );
+Process gantt_chart[1000]; // Array to store the process execution timeline
+int gantt_size = 0;    // Tracks the total timeline size
 
-    IupSetAttribute(gbox, "NAME", "GRID");
 
-    for(int i = 1; i < 11; i++){
-        char index[4];
-        sprintf(index, "%d", i);
-        Ihandle *pid = IupSetAttributes(IupLabel(index), "ALIGNMENT=ACENTER");
-        Ihandle *arrivalInput = IupSetAttributes(IupText("0"), "FILTER=NUMBER, PADDING=3x3");
-        Ihandle *burstInput = IupSetAttributes(IupText("0"), "FILTER=NUMBER, PADDING=3x3");
-        Ihandle *ioInput = IupSetAttributes(IupText("0"), "FILTER=NUMBER, PADDING=3x3");
 
-        IupAppend(gbox, pid);
-        IupAppend(gbox, arrivalInput);
-        IupAppend(gbox, burstInput);
-        IupAppend(gbox, ioInput);
-    }
-
-    IupRefresh(gbox);
-
-    IupSetAttribute(gbox, "EXPANDCHILDREN", "HORIZONTAL");
-    IupSetAttribute(gbox, "NUMDIV", "4");
-    IupSetAttribute(gbox, "ALIGNMENTLIN", "ACENTER");
-    IupSetAttribute(gbox, "MARGIN", "10x10");
-    IupSetAttribute(gbox, "GAPLIN", "5");
-    IupSetAttribute(gbox, "GAPCOL", "5");
-    return gbox;
-}
-
-Ihandle *timeQuantumInput() {
-    Ihandle *timeQuantum;
-    timeQuantum = IupHbox
-    (
-      IupSetAttributes(IupLabel("Enter time quantum (ms):"), "FONTSTYLE=Bold"),
-      IupSetAttributes(IupText("Arrival Time"), "FILTER=NUMBER, SIZE=20x10, MARGIN=3x3"),
-      IupSetAttributes(IupLabel("(Max 100)"), "FONTSTYLE=Bold"),
-      NULL
-    );
-
-    return timeQuantum;
-}
-
-Ihandle *processNumInput() {
-    Ihandle *processNum;
-
-    processNum = IupHbox
-    (
-     IupSetAttributes(IupLabel("Enter number of processes:"), "FONTSTYLE=Bold"),
-     IupSetAttributes(IupList(NULL), "DROPDOWN=YES, 1=1,2=2,3=3,4=4,5=5,6=6,7=7,8=8,9=9,10=10"),
-     NULL
-    );
-
-    return processNum;
-}
-
-/* getProcessNum activates when the process number is selected.
-   Could be used to set number of rows in the grid */
-int getProcessNum(Ihandle *self){
-    char *processNumValue = IupGetAttribute(self, "VALUE");
-    int processNum = atoi(processNumValue);
-    printf("%d",processNum);
-    return IUP_DEFAULT;
-}
-
-/* getGridRowVal takes rowNum 0-9 and returns the 4 values in 4 columns
-   Would be used to create Processes*/
-int** getGridRowVal(Ihandle *grid, int rowNum){
-    int *intArr[4];
-    char *values[4];
-    Ihandle *v0 = IupGetChild(grid, rowNum*4);
-    Ihandle *v1 = IupGetBrother(v0);
-    Ihandle *v2 = IupGetBrother(v1);
-    Ihandle *v3 = IupGetBrother(v2);
-    values[0] = IupGetAttribute(v0, "TITLE");
-    values[1] = IupGetAttribute(v1, "TITLE");
-    values[2] = IupGetAttribute(v2, "TITLE");
-    values[3] = IupGetAttribute(v3, "TITLE");
-
-    intArr[0] = atoi(values[0]);
-    printf("%d", intArr[0]);
-    return values;
-}
-
-void RoundRobinInput()
-{
-  Ihandle *mainDialog;
-  Ihandle *timeQuantum;
-  Ihandle *processNum;
-  Ihandle *processNumBox;
-  Ihandle *gridFrame;
-  Ihandle *gridbox;
-
-  processNum = processNumInput();
-  processNumBox = IupGetChild(processNum, 1);
-  timeQuantum = timeQuantumInput();
-  gridbox = inputGrid();
-  gridFrame = IupFrame(gridbox);
-  Ihandle *runBtn = IupSetAttributes(IupButton("Run", NULL), "PADDING=3x3");
-
-  mainDialog = IupDialog
-  (
-    IupVbox
-    (
-      processNum,
-      timeQuantum,
-      gridFrame,
-      runBtn,
-      NULL      // Always end with NULL for this kind of IUP list
-    )
-  );
-
-  IupSetCallback(processNumBox, "VALUECHANGED_CB", (Icallback)getProcessNum);
-  IupSetAttribute(mainDialog, "TITLE", "Round Robin Input");
-  IupSetAttribute(mainDialog, "MARGIN", "10x10");
-  IupSetAttribute(gridFrame, "MARGIN", "0x0");   /* avoid attribute propagation */
-
-  /* Shows dlg in the center of the screen */
-  IupShowXY(mainDialog, IUP_CENTER, IUP_CENTER);
-
-}
-
-int main(int argc, char **argv) {
-
-    /* TODO: Display only, just close for now */
-    IupOpen(&argc, &argv);
-    RoundRobinInput();
-    IupMainLoop();
-    IupClose();
-
+int main() {
     do {
         printf("Enter number of processes (1-%d): ", MAX_PROCESSES);
         int check_process_count = scanf("%d", &num_processes);
@@ -253,6 +128,8 @@ int main(int argc, char **argv) {
         }
     } while (time_quantum < 0 || time_quantum > MAX_TIME_QUANTUM);
 
+
+
     initialize_processes(processes, num_processes);
 
     sort_processes_by_arrival_time(processes, num_processes);
@@ -262,6 +139,8 @@ int main(int argc, char **argv) {
     round_robin_scheduler();
 
     output_results();
+
+    print_gantt_chart(gantt_chart,gantt_size);
 
     return 0;
 }
@@ -342,6 +221,22 @@ void check_for_new_arrivals(int *current_time, Queue *ready_queue) {
 }
 
 
+// Add this function to log processes in the Gantt chart
+void log_to_gantt_chart(Process process, int *current_time) {
+    gantt_chart[gantt_size].process_id = process.process_id;
+    gantt_chart[gantt_size].arrival_time = *current_time;
+    if(time_quantum < process.remaining_burst_time){
+        gantt_chart[gantt_size].burst_time = time_quantum;
+        gantt_chart[gantt_size].turnaround_time = *current_time + time_quantum;
+
+    }
+    else{
+        gantt_chart[gantt_size].burst_time = process.remaining_burst_time;
+        gantt_chart[gantt_size].turnaround_time = *current_time + process.remaining_burst_time;
+    }
+    gantt_size++;
+}
+
 void update_queue(Queue *ready_queue, int *current_time, int *executed_processes, int *blocked_processes) {
     int current_process = dequeue(ready_queue);
     processes[current_process].is_ready = false;
@@ -353,6 +248,7 @@ void update_queue(Queue *ready_queue, int *current_time, int *executed_processes
     }
 
     if (processes[current_process].remaining_burst_time <= time_quantum) {
+        log_to_gantt_chart(processes[current_process], current_time);
         processes[current_process].is_running = false;
         *current_time += processes[current_process].remaining_burst_time;
         processes[current_process].remaining_burst_time = 0;
@@ -379,6 +275,7 @@ void update_queue(Queue *ready_queue, int *current_time, int *executed_processes
             check_for_new_arrivals(current_time, ready_queue);
         }
     } else {
+        log_to_gantt_chart(processes[current_process], current_time);
         processes[current_process].remaining_burst_time -= time_quantum;
         *current_time += time_quantum;
         processes[current_process].is_running = false;
@@ -387,11 +284,11 @@ void update_queue(Queue *ready_queue, int *current_time, int *executed_processes
             check_blocked_processes(current_time, ready_queue, executed_processes, blocked_processes);
         }
 
-		if (*executed_processes != num_processes) {
+        if (*executed_processes != num_processes) {
             check_for_new_arrivals(current_time, ready_queue);
         }
 
-		enqueue(ready_queue, current_process);
+        enqueue(ready_queue, current_process);
         processes[current_process].is_ready = true;
     }
 }
@@ -416,6 +313,7 @@ void round_robin_scheduler() {
     enqueue(ready_queue, 0);
     processes[0].in_queue = true;
     processes[0].is_ready = true;
+    int count = 0;
 
     int current_time = 0;
     int executed_processes = 0;
@@ -426,6 +324,7 @@ void round_robin_scheduler() {
     }
 
     output_process(current_time, processes[0].process_id, READY, processes[0].remaining_burst_time, processes[0].io_wait_time);
+
 
     while (!is_queue_empty(ready_queue) || blocked_processes > 0) {
         check_blocked_processes(&current_time, ready_queue, &executed_processes, &blocked_processes);
@@ -483,3 +382,50 @@ void output_results() {
     printf("Average Response Time (ms): %.2f\n", total_response_time / num_processes);
     printf("Total CPU Utilization (%%): %.2f%%\n", total_burst_time / (total_burst_time + total_waiting_time) * 100);
 }
+
+void print_gantt_chart(Process p[], int n)
+{
+    int i, j;
+    int min_length = 1;
+    int num_line;
+    // print top bar
+    printf(" ");
+    for(i=0; i<n; i++) {
+        if (p[i].burst_time/2 < min_length) num_line = min_length;
+        else num_line = p[i].burst_time/2;
+        for(j=0; j< num_line; j++) printf("--");
+        printf(" ");
+    }
+    printf("\n|");
+
+    // printing process id in the middle
+    for(i=0; i<n; i++) {
+        for(j=0; j<(p[i].burst_time / 2) - 1; j++) printf(" ");
+        printf("P%d", p[i].process_id);
+        for(j=0; j<(p[i].burst_time / 2 ) - 1; j++) printf(" ");
+        printf("|");
+    }
+    printf("\n ");
+    // printing bottom bar
+    for(i=0; i<n; i++) {
+        if (p[i].burst_time/2 < min_length) num_line = min_length;
+        else num_line = p[i].burst_time/2;
+        for(j=0; j< num_line; j++) printf("--");
+        printf(" ");
+    }
+    printf("\n");
+
+    // printing the time line
+    printf("%d", p[0].arrival_time);
+    for(i=0; i<n; i++) {
+        if (p[i].burst_time/2 < min_length) num_line = min_length;
+        else num_line = p[i].burst_time/2;
+        for(j=0; j< num_line; j++) printf("  ");
+        if(p[i].turnaround_time > 9) printf("\b"); // backspace : remove 1 space
+        printf("%d", p[i].turnaround_time);
+
+    }
+    printf("\n");
+
+}
+
