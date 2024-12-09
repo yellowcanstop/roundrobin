@@ -424,6 +424,7 @@ void update_queue(Queue *ready_queue, int *current_time, int *executed_processes
 
         enqueue(ready_queue, current_process);
         processes[current_process].is_ready = true;
+        output_process(*current_time, processes[current_process].process_id, READY, processes[current_process].remaining_burst_time, processes[current_process].io_wait_time);
     }
 }
 
