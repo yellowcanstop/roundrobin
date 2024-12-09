@@ -20,8 +20,8 @@ int gantt_size = 0;    // Tracks the total timeline size
 
 
 void fillProcesses(Process processes[], Ihandle* grid){
-    printf("PID\tAT\tBT\tIOT\n");
     printf("Time Quantum: %dms\n", time_quantum);
+    printf("PID\tAT\tBT\tIOT\n");
     for(int i = 0; i < num_processes; i++){
         int PID = i+1;
         int AT = getCellValue(grid, PID, 1);
