@@ -355,8 +355,9 @@ void round_robin_scheduler() {
     output_process(current_time, processes[0].process_id, READY, processes[0].remaining_burst_time, processes[0].io_wait_time);
 
     // Core loop for round robin scheduling
-    while (!is_queue_empty(ready_queue) || blocked_processes > 0) {
+    while (!is_queue_empty(ready_queue) || blocked_processes > 0 || executed_processes < num_processes) {
         check_blocked_processes(&current_time, ready_queue, &executed_processes, &blocked_processes);
+        check_for_new_arrivals(&current_time, ready_queue);
         if (!is_queue_empty(ready_queue)) {
             update_queue(ready_queue, &current_time, &executed_processes, &blocked_processes);
         } 
