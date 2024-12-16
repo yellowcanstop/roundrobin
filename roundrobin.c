@@ -1,8 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include <iup.h>
 #include <string.h>
+#include <math.h>
+
+#include <iup.h>
 
 #include "queue.h"
 #include "robinui.h"
@@ -59,8 +61,12 @@ int configRoundRobin(Ihandle *self){
     num_processes = atoi(processNumStr);
 
     Ihandle* grid = IupGetDialogChild(self, "GRID");
-    fillProcesses(processes, grid);
-    return IUP_CLOSE;
+    if(invalidTimeQuantum(time_quantum)){
+        IupMessageError(self, "Time Quantum must be 1-100!");
+    }else{
+        fillProcesses(processes, grid);
+        return IUP_CLOSE;
+    }
 }
 
 void RoundRobinInput()
@@ -226,7 +232,7 @@ void log_to_gantt_chart(Process process, int *current_time) {
 void update_queue(Queue *ready_queue, int *current_time, int *executed_processes, int *blocked_processes) {
     int current_process = dequeue(ready_queue);
     processes[current_process].is_ready = false;
-   
+
     // if process has had one time quantum of CPU usage and it has I/O operation, block it
     // this aligns with the assumption that I/O operations always happen after CPU operations
     if (processes[current_process].response_time != -1 && processes[current_process].io_wait_time > 0) {
@@ -236,7 +242,7 @@ void update_queue(Queue *ready_queue, int *current_time, int *executed_processes
         processes[current_process].blocked_until = *current_time + processes[current_process].io_wait_time;
         output_process(*current_time, processes[current_process].process_id, BLOCKED, processes[current_process].remaining_burst_time, processes[current_process].io_wait_time);
         return;
-    } 
+    }
 
     // if process has not been responded to yet, calculate response time
     if (processes[current_process].response_time == -1) {
@@ -255,21 +261,21 @@ void update_queue(Queue *ready_queue, int *current_time, int *executed_processes
     }
 
     // if process will complete within the time quantum
-    if (processes[current_process].remaining_burst_time <= time_quantum) {        
+    if (processes[current_process].remaining_burst_time <= time_quantum) {
         processes[current_process].is_running = true;
         output_process(*current_time, processes[current_process].process_id, RUNNING, processes[current_process].remaining_burst_time, processes[current_process].io_wait_time);
         log_to_gantt_chart(processes[current_process], current_time);
         processes[current_process].is_running = false;
         *current_time += processes[current_process].remaining_burst_time;
         processes[current_process].remaining_burst_time = 0;
-      
+
         // if process has I/O operation, block it
         if (processes[current_process].io_wait_time > 0) {
             (*blocked_processes)++;
             processes[current_process].is_blocked = true;
             processes[current_process].blocked_until = *current_time + processes[current_process].io_wait_time;
             output_process(*current_time, processes[current_process].process_id, BLOCKED, processes[current_process].remaining_burst_time, processes[current_process].io_wait_time);
-        } 
+        }
         // if process has completed all operations
         else {
             processes[current_process].is_completed = true;
@@ -289,7 +295,7 @@ void update_queue(Queue *ready_queue, int *current_time, int *executed_processes
         if (*executed_processes != num_processes) {
             check_for_new_arrivals(current_time, ready_queue);
         }
-    } 
+    }
     // if process will not complete within the time quantum
     else {
         // run process for time quantum
@@ -298,7 +304,7 @@ void update_queue(Queue *ready_queue, int *current_time, int *executed_processes
         log_to_gantt_chart(processes[current_process], current_time);
         processes[current_process].remaining_burst_time -= time_quantum;
         *current_time += time_quantum;
-        
+
         // preempt process
         processes[current_process].is_running = false;
 
@@ -360,7 +366,7 @@ void round_robin_scheduler() {
         check_for_new_arrivals(&current_time, ready_queue);
         if (!is_queue_empty(ready_queue)) {
             update_queue(ready_queue, &current_time, &executed_processes, &blocked_processes);
-        } 
+        }
         else {
             current_time++;
         }
@@ -425,7 +431,7 @@ void output_results() {
     printf("Average Response Time (ms): %.2f\n", total_response_time / num_processes);
     printf("Total CPU Utilization (%%): %.2f%%\n", total_burst_time / (total_burst_time + total_waiting_time) * 100);
 
-    export_analysis_to_file();
+    // export_analysis_to_file(); <-- Now use batch file to export to file
 }
 
 
@@ -435,21 +441,22 @@ void print_gantt_chart(Process p[], int n)
     int i, j;
     int min_length = 1;
     int num_line;
+    int block_space;
     // print top bar
     printf(" ");
     for(i=0; i<n; i++) {
         if (p[i].burst_time/2 < min_length) num_line = min_length;
         else num_line = p[i].burst_time/2;
-        for(j=0; j< num_line; j++) printf("--");
+        for(j=0; j< num_line; j++) printf("-");
         printf(" ");
     }
     printf("\n|");
-
-    // printing process id in the middle
-    for(i=0; i<n; i++) {
-        for(j=0; j<(p[i].burst_time / 2) - 1; j++) printf(" ");
+    int num_mid_up = ceil(num_line/2);
+    int num_mid_low = floor(num_line/2);
+    for(i=0;i<n;i++){
+        for(j=0; j < num_mid_up;j++) printf(" ");
         printf("P%d", p[i].process_id);
-        for(j=0; j<(p[i].burst_time / 2 ) - 1; j++) printf(" ");
+        for(j=0; j < num_mid_low-1;j++) printf(" ");
         printf("|");
     }
     printf("\n ");
@@ -457,23 +464,25 @@ void print_gantt_chart(Process p[], int n)
     for(i=0; i<n; i++) {
         if (p[i].burst_time/2 < min_length) num_line = min_length;
         else num_line = p[i].burst_time/2;
-        for(j=0; j< num_line; j++) printf("--");
+        for(j=0; j< num_line; j++) printf("-");
         printf(" ");
     }
     printf("\n");
 
     // printing the time line
     printf("%d", p[0].arrival_time);
-    for(i=0; i<n; i++) {
+    for(i=0;i<n;i++){
         if (p[i].burst_time/2 < min_length) num_line = min_length;
         else num_line = p[i].burst_time/2;
-        for(j=0; j< num_line; j++) printf("  ");
-        if(p[i].turnaround_time > 9) printf("\b"); // backspace : remove 1 space
+        int backspace = 0;
+        if(p[i].turnaround_time > 9 && p[i].turnaround_time < 100) backspace = 1;
+        if(p[i].turnaround_time > 99 && p[i].turnaround_time < 1000) backspace = 2;
+        for(j=0; j< num_line-backspace; j++) printf(" ");
         printf("%d", p[i].turnaround_time);
-
     }
     printf("\n");
 }
+
 
 
 // Save output to file

@@ -1,4 +1,5 @@
 #include <stddef.h>
+#include <stdbool.h>
 #include <iup.h>
 #include "robinui.h"
 
@@ -91,4 +92,13 @@ int getCellValue(Ihandle *grid, int rowNum, int colNum){
     int value = atoi(valueStr);
     return value;
 }
+
+bool invalidTimeQuantum(int TQ){
+    if(TQ > 100 || TQ < 1){
+        return true;
+    }else{
+        return false;
+    }
+}
+
 
