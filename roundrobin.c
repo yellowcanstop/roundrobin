@@ -286,7 +286,7 @@ void update_queue(Queue *ready_queue, int *current_time, int *executed_processes
 
         // check for blocked processes
         if (*blocked_processes != 0) {
-            check_blocked_processes(current_time, ready_queue, executed_processes, blocked_processes);
+            check_blocked_processes(current_time, ready_queue, blocked_processes);
         }
 
         // check for new arrivals
@@ -318,14 +318,14 @@ void update_queue(Queue *ready_queue, int *current_time, int *executed_processes
 
         // check for blocked processes
         if (*blocked_processes != 0) {
-            check_blocked_processes(current_time, ready_queue, executed_processes, blocked_processes);
+            check_blocked_processes(current_time, ready_queue, blocked_processes);
         }
     }
 }
 
 
 // Helper function to check if blocked process has completed its I/O operation
-void check_blocked_processes(int *current_time, Queue *ready_queue, int *executed_processes, int *blocked_processes) {
+void check_blocked_processes(int *current_time, Queue *ready_queue, int *blocked_processes) {
     for (int i = 0; i < num_processes; i++) {
         if (processes[i].is_blocked && *current_time >= processes[i].blocked_until) {
             processes[i].is_blocked = false;
@@ -345,7 +345,6 @@ void round_robin_scheduler() {
     enqueue(ready_queue, 0);
     processes[0].in_queue = true;
     processes[0].is_ready = true;
-    int count = 0;
 
     int current_time = 0;
     int executed_processes = 0;
@@ -360,7 +359,7 @@ void round_robin_scheduler() {
 
     // Core loop for round robin scheduling
     while (!is_queue_empty(ready_queue) || blocked_processes > 0 || executed_processes < num_processes) {
-        check_blocked_processes(&current_time, ready_queue, &executed_processes, &blocked_processes);
+        check_blocked_processes(&current_time, ready_queue, &blocked_processes);
         check_for_new_arrivals(&current_time, ready_queue);
         if (!is_queue_empty(ready_queue)) {
             update_queue(ready_queue, &current_time, &executed_processes, &blocked_processes);
@@ -439,7 +438,7 @@ void print_gantt_chart(Process p[], int n)
     int i, j;
     int min_length = 4;
     int num_line;
-    int block_space;
+
     // print top bar
     printf(" ");
     for(i=0; i<n; i++) {
