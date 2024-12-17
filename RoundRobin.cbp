@@ -16,7 +16,8 @@
 				</Compiler>
 				<ExtraCommands>
 					<Add after='cmd /c copy &quot;$(PROJECT_DIR)iuplib\iup.dll&quot; &quot;$(TARGET_OUTPUT_DIR)&quot;' />
-					<Add after='cmd /c copy &quot;$(PROJECT_DIR)roundrobin.bat&quot; &quot;$(TARGET_OUTPUT_DIR)&quot;' />
+					<Add after='cmd /c copy &quot;$(PROJECT_DIR)RUN_ONLY.bat&quot; &quot;$(TARGET_OUTPUT_DIR)&quot;' />
+					<Add after='cmd /c copy &quot;$(PROJECT_DIR)RUN_AND_SAVE.bat&quot; &quot;$(TARGET_OUTPUT_DIR)&quot;' />
 					<Mode after="always" />
 				</ExtraCommands>
 			</Target>

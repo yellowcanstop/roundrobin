@@ -437,7 +437,7 @@ void output_results() {
 void print_gantt_chart(Process p[], int n)
 {
     int i, j;
-    int min_length = 1;
+    int min_length = 4;
     int num_line;
     int block_space;
     // print top bar
@@ -449,12 +449,22 @@ void print_gantt_chart(Process p[], int n)
         printf(" ");
     }
     printf("\n|");
-    int num_mid_up = ceil(num_line/2);
-    int num_mid_low = floor(num_line/2);
+
+    // print PID
     for(i=0;i<n;i++){
-        for(j=0; j < num_mid_up;j++) printf(" ");
+        if (p[i].burst_time/2 < min_length) num_line = min_length;
+        else num_line = p[i].burst_time/2;
+        int num_mid_half = floor(num_line/2);
+        if(num_mid_half == 1) num_mid_half = 0;
+        int idChars = 2;
+        if(p[i].process_id == 10) {
+            num_mid_half--;
+            idChars++;
+        }
+        for(j=0; j < num_mid_half;j++) printf(" ");
         printf("P%d", p[i].process_id);
-        for(j=0; j < num_mid_low-1;j++) printf(" ");
+        int remaining_space = num_line - num_mid_half - idChars;
+        for(j=0;j<remaining_space;j++) printf(" ");
         printf("|");
     }
     printf("\n ");
