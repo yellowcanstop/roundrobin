@@ -3,7 +3,8 @@
 ## Group 10
 The program is a simulator of a Round-Robin process scheduler written in C with a graphical user interface (GUI) using the IUP library. For the convenience of the module covenor, Method 1 allows direct execution of the program.
 ## Method 1: Run batch file (RUN_AND_SAVE.bat or RUN_ONLY.bat)
-- From the ./run folder, run RUN_AND_SAVE.bat or RUN_ONLY.bat
+- From the ./run folder, open roundrobin.exe at least once (prerequisite for the batch files below to work).
+- To run the program, from the ./run folder, run RUN_AND_SAVE.bat or RUN_ONLY.bat. Input your data.
 - RUN_AND_SAVE.bat will save the simulation output in two places: 1) ./run/analysis.txt and 2) a relevant timestamped file inside the ./run/log folder. The ./run/analysis.txt file will automatically open for review.
 - RUN_ONLY.bat only prints the simulation output to the terminal. 
 - For both batch files, users are prompted in the terminal if they wish to start a new simulation. Press 'Y' to start a new simulation or 'N' to terminate the application.
@@ -39,7 +40,8 @@ gcc -Wall -g -Wextra -Iiuplib/include -Iiuplib -c ./roundrobin.c -o ./obj/roundr
 gcc -Liuplib -o ./run/roundrobin.exe ./obj/queue.o ./obj/robinui.o ./obj/roundrobin.o -lgdi32 -luser32 -lkernel32 -lcomctl32 ./iuplib/libiup.a
 
 ```
-- From the ./run folder, run RUN_AND_SAVE.bat or RUN_ONLY.bat
+- From the ./run folder, open roundrobin.exe at least once (prerequisite for the batch files below to work).
+- To run the program, from the ./run folder, run RUN_AND_SAVE.bat or RUN_ONLY.bat. Input your data.
 - RUN_AND_SAVE.bat will save the simulation output in two places: 1) ./run/analysis.txt and 2) a relevant timestamped file inside the ./run/log folder. The ./run/analysis.txt file will automatically open for review.
 - RUN_ONLY.bat only prints the simulation output to the terminal. 
 - For both batch files, users are prompted in the terminal if they wish to start a new simulation. Press 'Y' to start a new simulation or 'N' to terminate the application.
