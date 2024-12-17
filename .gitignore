@@ -1,6 +1,7 @@
 # specific to CodeBlocks IDE
 *.layout
 *.depend
+bin/
 # obj folder
 obj/
 # results analysis saved

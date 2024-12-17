@@ -63,6 +63,7 @@ int configRoundRobin(Ihandle *self){
     Ihandle* grid = IupGetDialogChild(self, "GRID");
     if(invalidTimeQuantum(time_quantum)){
         IupMessageError(self, "Time Quantum must be 1-100!");
+        return IUP_DEFAULT;
     }else{
         fillProcesses(processes, grid);
         return IUP_CLOSE;
