@@ -127,8 +127,6 @@ int main(int argc, char **argv) {
     printf("\nGantt Chart:\n");
     print_gantt_chart(gantt_chart,gantt_size);
 
-    printf("\nPlease see saved results in analysis.txt\n");
-
     return 0;
 }
 
