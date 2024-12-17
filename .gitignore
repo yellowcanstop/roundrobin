@@ -2,7 +2,7 @@
 *.layout
 *.depend
 bin/
-# obj folder
-obj/
+# object files
+*.o
 # results analysis saved
 *.txt

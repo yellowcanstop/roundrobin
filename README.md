@@ -17,12 +17,12 @@ The program is a simulator of a Round-Robin process scheduler written in C with 
 ```shell
 
 // Compile each source file into an object file
-gcc -Wall -g -Wextra -Iiuplib\include -Iiuplib -c .\queue.c -o .\obj\queue.o
-gcc -Wall -g -Wextra -Iiuplib\include -Iiuplib -c .\robinui.c -o .\obj\robinui.o
-gcc -Wall -g -Wextra -Iiuplib\include -Iiuplib -c .\roundrobin.c -o .\obj\roundrobin.o
+gcc -Wall -g -Wextra -Iiuplib\include -Iiuplib -c .\queue.c -o .\queue.o
+gcc -Wall -g -Wextra -Iiuplib\include -Iiuplib -c .\robinui.c -o .\robinui.o
+gcc -Wall -g -Wextra -Iiuplib\include -Iiuplib -c .\roundrobin.c -o .\roundrobin.o
 
 // Link the object files together to create the executable
-gcc -Liuplib -o .\run\roundrobin.exe .\obj\queue.o .\obj\robinui.o .\obj\roundrobin.o -lgdi32 -luser32 -lkernel32 -lcomctl32 .\iuplib\libiup.a
+gcc -Liuplib -o .\run\roundrobin.exe .\queue.o .\robinui.o .\roundrobin.o -lgdi32 -luser32 -lkernel32 -lcomctl32 .\iuplib\libiup.a
 
 ```
 - To run the program, from the ./run folder, run RUN_AND_SAVE.bat or RUN_ONLY.bat. Input your data.
