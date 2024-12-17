@@ -1,4 +1,6 @@
 #include <stdbool.h>
+#include <stdlib.h>
+#include <stdio.h>
 #include "queue.h"
 
 // Create a queue

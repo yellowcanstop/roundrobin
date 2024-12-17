@@ -4,4 +4,4 @@
 # obj folder
 obj/
 # results analysis saved
-analysis.txt
+*.txt

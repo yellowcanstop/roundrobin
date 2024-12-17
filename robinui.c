@@ -1,6 +1,8 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <iup.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include "robinui.h"
 
 /* Initializes the input grid */

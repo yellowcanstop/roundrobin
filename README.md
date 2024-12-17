@@ -10,16 +10,32 @@ The program is a simulator of a Round-Robin process scheduler written in C with 
 
 ## Method 2: Compilation Prerequisite: Add IUP Library
 ## 2.1. Using Code::Blocks
-- In Code::Blocks, open the RoundRobin.cbp file. Compile and run from within the IDE.
+- In Code::Blocks, import the directory and open the RoundRobin.cbp file. 
+- Build and run from within the IDE.
 - Please ensure you have the iuplib folder, roundrobin.c and roundrobin.cbp file in the same folder (same structure as in the repository).
 - The simulation output is printed to the terminal and saved in analysis.txt in the same folder.
 
 ## 2.2. Using command line (gcc)
-- Please ensure the iuplib folder is present and in the same folder as roundrobin.c
-- Wherever your GCC commandline is, it should be configured in a similar way to this (Change YOUR_PATH_HERE to your actual git folder path)
-```
-gcc.exe -Wall -g -Wextra -Wall -Iiuplib\include -Iiuplib -c C:\{YOUR_PATH_HERE}\git\roundrobin\roundrobin.c -o obj\Debug\roundrobin.o
-gcc.exe -Liuplib -o bin\Debug\RoundRobin.exe obj\Debug\roundrobin.o   -lgdi32 -luser32 -lkernel32 -lcomctl32 iuplib\libiup.a
-```
+- Please ensure that you are in the directory where roundrobin.c and iuplib folder are located.
+- Please ensure the iuplib folder (containing the include directory with the iup.h file inside it) is in the same folder as roundrobin.c
+- Windows Command Prompt:
+```shell
+// Compile each source file into an object file
+gcc.exe -Wall -g -Wextra -Iiuplib\include -Iiuplib -c .\queue.c -o .\obj\queue.o
+gcc.exe -Wall -g -Wextra -Iiuplib\include -Iiuplib -c .\robinui.c -o .\obj\robinui.o
+gcc.exe -Wall -g -Wextra -Iiuplib\include -Iiuplib -c .\roundrobin.c -o .\obj\roundrobin.o
 
+// Link the object files together to create the executable
+gcc.exe -Liuplib -o .\run\roundrobin.exe .\obj\queue.o .\obj\robinui.o .\obj\roundrobin.o -lgdi32 -luser32 -lkernel32 -lcomctl32 .\iuplib\libiup.a
+```
+- Bash:
+```bash
+// Compile each source file into an object file
+gcc -Wall -g -Wextra -Iiuplib/include -Iiuplib -c ./queue.c -o ./obj/queue.o
+gcc -Wall -g -Wextra -Iiuplib/include -Iiuplib -c ./robinui.c -o ./obj/robinui.o
+gcc -Wall -g -Wextra -Iiuplib/include -Iiuplib -c ./roundrobin.c -o ./obj/roundrobin.o
 
+// Link the object files together to create the executable
+gcc -Liuplib -o ./run/roundrobin.exe ./obj/queue.o ./obj/robinui.o ./obj/roundrobin.o -lgdi32 -luser32 -lkernel32 -lcomctl32 ./iuplib/libiup.a
+```
+- Run roundrobin.bat from the "Run" folder.
